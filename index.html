@@ -226,6 +226,11 @@ details.note code{background:var(--chip);padding:1px 5px;border-radius:4px;font-
     <div class="controls">
       <label class="date" for="mk">市場</label>
       <select id="mk" aria-label="選擇批發市場"></select>
+      <label class="date" for="selUnit">單位</label>
+      <select id="selUnit" aria-label="切換計價單位">
+        <option value="catty">元／台斤 (600g)</option>
+        <option value="kg">元／公斤 (1000g)</option>
+      </select>
       <span class="date" id="dateLbl"></span>
       <button class="btn accent" id="btnPwaInstall">📱 加到手機桌面</button>
       <button class="btn" id="btnRefresh" title="重新整理最新行情">🔄 更新</button>
@@ -407,6 +412,7 @@ const state = {
   isLive: false,
   tradeDateStr: '',
   mkId: '109',
+  unit: 'catty', // 預設使用傳統市場慣用台斤（1台斤 = 0.6公斤）
   sel: 'C01',
   tab: 'all',
   sort: 'score',
@@ -424,16 +430,26 @@ const state = {
 const KEY = 'caipan-app-v2';
 try{
   const v = localStorage.getItem(KEY);
-  if(v){ state.favs = JSON.parse(v).favs || {}; }
-  else { state.favs = {C01:{t:null}, C22:{t:null}, C23:{t:38}}; }
-}catch(e){ state.favs = {C01:{t:null}, C22:{t:null}, C23:{t:38}}; }
+  if(v){
+    const parsed = JSON.parse(v);
+    state.favs = parsed.favs || {};
+    if(parsed.unit) state.unit = parsed.unit;
+  } else {
+    state.favs = {C01:{t:null}, C22:{t:null}, C23:{t:38}};
+    state.unit = 'catty';
+  }
+}catch(e){ state.favs = {C01:{t:null}, C22:{t:null}, C23:{t:38}}; state.unit = 'catty'; }
 
 function save(){
-  try{ localStorage.setItem(KEY, JSON.stringify({favs: state.favs})); }catch(e){}
+  try{ localStorage.setItem(KEY, JSON.stringify({favs: state.favs, unit: state.unit})); }catch(e){}
 }
 
 /* ---------- 輔助工具 ---------- */
 const $ = s => document.querySelector(s);
+const unitMult = () => state.unit === 'catty' ? 0.6 : 1.0;
+const unitLabel = () => state.unit === 'catty' ? '元／台斤' : '元／公斤';
+const unitShort = () => state.unit === 'catty' ? '元/斤' : '元/kg';
+const price = v => (typeof v === 'number' ? v * unitMult() : 0).toFixed(1);
 const cls = v => v > 0.0001 ? 'up' : v < -0.0001 ? 'down' : 'flat';
 const sign = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1);
 const arrow = v => v > 0 ? '▲' : v < 0 ? '▼' : '—';
@@ -532,7 +548,7 @@ function render(){
 }
 
 function renderTicker(){
-  const h = AN.map(a => `<span class="tk"><b>${a.crop.name}</b><span class="${cls(a.chg)}">${a.t.c.toFixed(1)} ${arrow(a.chg)}${Math.abs(a.pct).toFixed(1)}%</span></span>`).join('');
+  const h = AN.map(a => `<span class="tk"><b>${a.crop.name}</b><span class="${cls(a.chg)}">${price(a.t.c)} ${unitShort()} ${arrow(a.chg)}${Math.abs(a.pct).toFixed(1)}%</span></span>`).join('');
   $('#ticker').innerHTML = h + h;
 }
 
@@ -602,7 +618,7 @@ function renderBoard(){
       <article class="tag">
         <div class="nm hand">${a.crop.name}</div>
         <div class="sub">${a.crop.raw}｜${a.crop.cat}｜買點評分 ${a.score}</div>
-        <div class="px num hand">${a.t.c.toFixed(1)}<small>元／公斤</small></div>
+        <div class="px num hand">${price(a.t.c)}<small>${unitLabel()}</small></div>
         <div class="sub num">${cheaper >= 0 ? `比均價便宜 ${cheaper.toFixed(0)}%` : `比均價高出 ${(-cheaper).toFixed(0)}%`}，今日 <span class="${cls(a.chg)}">${arrow(a.chg)}${Math.abs(a.pct).toFixed(1)}%</span></div>
         <ul>${a.reasons.slice(0, 3).map(r => `<li>${r}</li>`).join('') || '<li>價格平穩</li>'}</ul>
         <p class="eat">適合吃：${a.crop.tags.map(t => EAT[t] || t).join('、')}</p>
@@ -646,7 +662,8 @@ function renderTable(){
 
   document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.t === state.tab));
   document.querySelectorAll('th[data-s]').forEach(th => {
-    const base = th.textContent.replace(/[ ▲▼]/g, '');
+    let base = th.textContent.replace(/[ ▲▼]/g, '');
+    if(th.dataset.s === 'c') base = `平均價 (${unitShort()})`;
     th.textContent = base + (th.dataset.s === state.sort && base ? (state.dir < 0 ? ' ▼' : ' ▲') : '');
   });
 
@@ -661,7 +678,7 @@ function renderTable(){
       <tr data-id="${a.crop.id}" tabindex="0" class="${a.crop.id === state.sel ? 'sel' : ''}">
         <td><button class="star ${fav ? 'on' : ''}" data-star="${a.crop.id}" aria-label="${fav ? '取消關注' : '加入關注'}${a.crop.name}">${fav ? '★' : '☆'}</button></td>
         <td class="cname"><b>${a.crop.name}</b><small>${a.crop.raw}</small></td>
-        <td class="num">${a.t.c.toFixed(1)}</td>
+        <td class="num">${price(a.t.c)}</td>
         <td class="num ${cls(a.chg)}">${arrow(a.chg)} ${Math.abs(a.pct).toFixed(1)}%</td>
         <td class="num col-vol">${a.t.v.toLocaleString()} t</td>
         <td class="col-spark">${sparkSvg(a.spark)}</td>
@@ -688,22 +705,22 @@ function renderDetail(){
    <div class="dhead">
      <div>
        <div class="nm hand">${a.crop.name}</div>
-       <div class="sub">${a.crop.raw}｜${mkName}批發市場｜${a.in_season ? '當季盛產' : '非盛產期'}｜元／公斤</div>
+       <div class="sub">${a.crop.raw}｜${mkName}批發市場｜${a.in_season ? '當季盛產' : '非盛產期'}｜${unitLabel()}</div>
      </div>
      <div class="dpx num ${cls(a.chg)}">
-       ${a.t.c.toFixed(1)}
-       <small>${arrow(a.chg)} ${Math.abs(a.chg).toFixed(1)}（${sign(a.pct)}%）</small>
+       ${price(a.t.c)}
+       <small>${arrow(a.chg)} ${Math.abs(a.chg * unitMult()).toFixed(1)}（${sign(a.pct)}%）</small>
      </div>
    </div>
    <div class="stats num">
-     <div><div class="k">上價</div><div class="v">${a.t.h.toFixed(1)}</div></div>
-     <div><div class="k">下價</div><div class="v">${a.t.l.toFixed(1)}</div></div>
-     <div><div class="k">5 日均</div><div class="v">${a.ma5.toFixed(1)}</div></div>
-     <div><div class="k">20 日均</div><div class="v">${a.ma20.toFixed(1)}</div></div>
+     <div><div class="k">上價</div><div class="v">${price(a.t.h)}</div></div>
+     <div><div class="k">下價</div><div class="v">${price(a.t.l)}</div></div>
+     <div><div class="k">5 日均</div><div class="v">${price(a.ma5)}</div></div>
+     <div><div class="k">20 日均</div><div class="v">${price(a.ma20)}</div></div>
      <div><div class="k">交易量</div><div class="v">${a.t.v.toLocaleString()} t</div></div>
      <div><div class="k">RSI(14)</div><div class="v">${a.rsi.toFixed(0)}</div></div>
-     <div><div class="k">近期低檔</div><div class="v">${a.lo.toFixed(1)}</div></div>
-     <div><div class="k">近期高檔</div><div class="v">${a.hi.toFixed(1)}</div></div>
+     <div><div class="k">近期低檔</div><div class="v">${price(a.lo)}</div></div>
+     <div><div class="k">近期高檔</div><div class="v">${price(a.hi)}</div></div>
    </div>
    <div class="chartbar">
      <span class="legend">紅漲綠跌<i style="background:var(--ink)"></i>5 日均<i style="background:var(--accent)"></i>20 日均</span>
@@ -723,16 +740,17 @@ function renderDetail(){
    <div class="watchbox">
      <button class="btn ${fav ? '' : 'primary'}" id="favBtn">${fav ? '★ 已關注' : '☆ 加入關注'}</button>
      <label for="tgt">跌到</label>
-     <input id="tgt" class="num" type="number" min="0" step="0.5" inputmode="decimal" value="${fav && fav.t ? fav.t : ''}" placeholder="${(a.ma20 * 0.9).toFixed(1)}">
-     <span>元以下通知我</span>
+     <input id="tgt" class="num" type="number" min="0" step="0.5" inputmode="decimal" value="${fav && fav.t ? (fav.t * unitMult()).toFixed(1) : ''}" placeholder="${price(a.ma20 * 0.9)}">
+     <span>${unitLabel()} 以下通知我</span>
    </div>`;
 
   $('#favBtn').onclick = () => toggleFav(a.crop.id);
   $('#tgt').onchange = e => {
     const v = parseFloat(e.target.value);
-    state.favs[a.crop.id] = {t: isFinite(v) && v > 0 ? v : null};
+    const targetInKg = (isFinite(v) && v > 0) ? (v / unitMult()) : null;
+    state.favs[a.crop.id] = {t: targetInKg};
     save();
-    toast(isFinite(v) && v > 0 ? `已設定：${a.crop.name} 跌到 ${v} 元以下會提醒` : `已清除 ${a.crop.name} 目標價`);
+    toast(targetInKg ? `已設定：${a.crop.name} 跌到 ${v} ${unitLabel()} 以下會提醒` : `已清除 ${a.crop.name} 目標價`);
     render();
   };
   $('#rng').querySelectorAll('button').forEach(b => {
@@ -757,9 +775,18 @@ function drawChart(a){
   const series = a.series || [];
   if(!series.length) return;
 
-  const data = series.slice(-state.range);
+  const mult = unitMult();
+  const rawData = series.slice(-state.range);
+  const data = rawData.map(p => ({
+    o: p.o * mult,
+    h: p.h * mult,
+    l: p.l * mult,
+    c: p.c * mult,
+    v: p.v
+  }));
   const n = data.length;
-  const tgt = state.favs[a.crop.id] && state.favs[a.crop.id].t;
+  const tgtKg = state.favs[a.crop.id] && state.favs[a.crop.id].t;
+  const tgt = tgtKg ? tgtKg * mult : null;
 
   let mn = Math.min(...data.map(p => p.l)), mx = Math.max(...data.map(p => p.h));
   if(tgt){ mn = Math.min(mn, tgt); mx = Math.max(mx, tgt); }
@@ -794,7 +821,7 @@ function drawChart(a){
     ctx.beginPath(); ctx.moveTo(L, y(tgt)); ctx.lineTo(W - R, y(tgt)); ctx.stroke();
     ctx.setLineDash([]);
     ctx.fillStyle = col('--accent');
-    ctx.fillText('目標 ' + tgt, L + 4, y(tgt) - 8);
+    ctx.fillText('目標 ' + tgt.toFixed(1), L + 4, y(tgt) - 8);
   }
 
   // K 線與成交量柱
@@ -815,7 +842,7 @@ function drawChart(a){
   });
 
   // 均線
-  const cl = series.map(p => p.c);
+  const cl = series.map(p => p.c * mult);
   const offset = series.length - data.length;
   const maLine = (period, color) => {
     ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.beginPath();
@@ -846,7 +873,7 @@ function drawChart(a){
     const prevC = k > 0 ? data[k - 1].c : p.o;
     const ch = ((p.c - prevC) / prevC) * 100;
 
-    tip.innerHTML = `平均價 ${p.c.toFixed(1)}（<span class="${cls(ch)}">${sign(ch)}%</span>）<br>上價 ${p.h.toFixed(1)}　下價 ${p.l.toFixed(1)}<br>交易量 ${p.v.toLocaleString()} t`;
+    tip.innerHTML = `平均價 ${p.c.toFixed(1)} ${unitShort()}（<span class="${cls(ch)}">${sign(ch)}%</span>）<br>上價 ${p.h.toFixed(1)}　下價 ${p.l.toFixed(1)}<br>交易量 ${p.v.toLocaleString()} t`;
     tip.style.display = 'block';
     const tw = tip.offsetWidth;
     tip.style.left = (x(k) + 12 + tw > W ? x(k) - tw - 4 : x(k) + 12) + 'px';
@@ -875,11 +902,17 @@ function toggleFav(id){
 
 function checkAlerts(){
   AN.forEach(a => {
-    if(!state.favs[a.crop.id] || a.level !== 'buy') return;
-    const k = `${state.mkId}-${a.crop.id}`;
+    if(!state.favs[a.crop.id]) return;
+    const fav = state.favs[a.crop.id];
+    const isTargetHit = fav.t && a.t.c <= fav.t;
+    if(a.level !== 'buy' && !isTargetHit) return;
+
+    const k = `${state.mkId}-${a.crop.id}-${state.unit}`;
     if(state.alerted[k]) return;
     state.alerted[k] = 1;
-    const msg = `${a.crop.name} 目前 ${a.t.c.toFixed(1)} 元，${a.reasons[0] || '到推薦買點了'}`;
+    const msg = isTargetHit 
+      ? `${a.crop.name} 跌至 ${price(a.t.c)} ${unitLabel()}，已達您的目標價！` 
+      : `${a.crop.name} 目前 ${price(a.t.c)} ${unitLabel()}，${a.reasons[0] || '到推薦買點了'}`;
     const mkName = (MARKETS.find(m => m.id === state.mkId) || {}).name || '';
     state.alerts.unshift({d: state.tradeDateStr || '今日', mk: mkName, msg, id: a.crop.id});
     toast('📉 ' + msg);
@@ -994,6 +1027,15 @@ if('serviceWorker' in navigator){
 /* ---------- 事件綁定 ---------- */
 initMarkets();
 $('#mk').onchange = e => { state.mkId = e.target.value; render(); };
+if($('#selUnit')){
+  $('#selUnit').value = state.unit;
+  $('#selUnit').onchange = e => {
+    state.unit = e.target.value;
+    save();
+    toast(`計價單位已切換為：${unitLabel()}`);
+    render();
+  };
+}
 $('#btnRefresh').onclick = () => loadLiveData();
 $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => { state.tab = b.dataset.t; renderTable(); });
 $('#q').oninput = e => { state.q = e.target.value.trim(); renderTable(); };
