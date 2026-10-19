@@ -1,0 +1,44 @@
+{
+  "name": "菜盤｜蔬果行情與買點推薦",
+  "short_name": "菜盤",
+  "description": "用農業部農產品批發市場交易行情，像看股票一樣看菜價，挑今天值得買的蔬果。",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EFF3EA",
+  "theme_color": "#1E2A21",
+  "orientation": "portrait-primary",
+  "lang": "zh-Hant",
+  "categories": ["shopping", "finance", "lifestyle", "food"],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>菜盤｜蔬果行情與買點推薦 DEMO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EFF3EA; --surface:#FFFFFF; --ink:#1E2A21; --muted:#5E6C61; --line:#D5DDCD;
+  --up:#C4332C; --down:#1C7C48; --accent:#D99A12; --accent-ink:#5A3E00;
+  --tag:#F4E4BE; --tag-ink:#3B2E12; --hole:#EFF3EA; --chip:#E3EADB;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#141A16; --surface:#1C241E; --ink:#E6EDE3; --muted:#98A69A; --line:#2E3B32;
+    --up:#F0655C; --down:#46C07E; --accent:#F0B83A; --accent-ink:#F0B83A;
+    --tag:#3A3122; --tag-ink:#F4E4BE; --hole:#141A16; --chip:#26302A; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#141A16; --surface:#1C241E; --ink:#E6EDE3; --muted:#98A69A; --line:#2E3B32;
+  --up:#F0655C; --down:#46C07E; --accent:#F0B83A; --accent-ink:#F0B83A;
+  --tag:#3A3122; --tag-ink:#F4E4BE; --hole:#141A16; --chip:#26302A; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;font-size:15px;line-height:1.55}
+.hand{font-family:"LXGW WenKai TC","Kaiti TC","DFKai-SB","BiauKai",serif}
+.num{font-variant-numeric:tabular-nums}
+.up{color:var(--up)} .down{color:var(--down)} .flat{color:var(--muted)}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.wrap{max-width:1280px;margin:0 auto;padding:0 20px}
+
+/* header */
+header.top{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between;padding:22px 0 14px}
+.brand h1{margin:0;font-size:44px;line-height:1;font-weight:700;letter-spacing:.04em}
+.brand p{margin:6px 0 0;color:var(--muted);font-size:14px}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.controls select,.btn{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.date{font-size:14px;color:var(--muted)}
+.date b{color:var(--ink);font-weight:500}
+.simflag{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:99px;background:var(--accent);color:#1E1400;font-size:12px}
+
+/* ticker */
+.ticker{border-top:1px solid var(--line);border-bottom:1px solid var(--line);overflow:hidden;white-space:nowrap;background:var(--surface)}
+.ticker-in{display:inline-flex;gap:28px;padding:8px 0;animation:marquee 80s linear infinite}
+.ticker:hover .ticker-in{animation-play-state:paused}
+.tk{font-size:14px}.tk b{font-weight:500;margin-right:6px}
+@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.ticker{overflow-x:auto}.ticker-in{animation:none}}
+
+/* index strip */
+.indices{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:18px 0 8px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.idx{padding:12px 16px;border-left:1px solid var(--line)}
+.idx:first-child{border-left:0}
+.idx .k{font-size:13px;color:var(--muted)}
+.idx .v{font-size:24px;font-weight:700}
+.idx .s{font-size:13px}
+
+/* board */
+.board{margin:26px 0 8px}
+.board-head{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:baseline;justify-content:space-between}
+.board h2{margin:0;font-size:34px;font-weight:700}
+.board-head p{margin:0;color:var(--muted);font-size:14px}
+.filters{display:flex;flex-direction:column;gap:8px;margin:14px 0 18px}
+.frow{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.frow span{font-size:13px;color:var(--muted);width:5.5em}
+.chip{border:1px solid transparent;background:var(--chip);border-radius:99px;padding:3px 12px;font-size:14px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.tags{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.tag{position:relative;background:var(--tag);color:var(--tag-ink);padding:22px 22px 18px 44px;
+  clip-path:polygon(22px 0,100% 0,100% 100%,22px 100%,0 50%);border-radius:0 12px 12px 0;min-height:230px;display:flex;flex-direction:column}
+.tag:nth-child(1){transform:rotate(-.8deg)} .tag:nth-child(2){transform:rotate(.5deg)} .tag:nth-child(3){transform:rotate(-.3deg)}
+.tag::before{content:"";position:absolute;left:18px;top:50%;width:12px;height:12px;margin-top:-6px;border-radius:50%;background:var(--hole);box-shadow:inset 0 1px 2px rgba(0,0,0,.25)}
+.tag .nm{font-size:32px;line-height:1.1;font-weight:700}
+.tag .sub{font-size:13px;opacity:.75}
+.tag .px{font-size:44px;line-height:1.1;margin-top:8px;font-weight:700}
+.tag .px small{font-size:15px;font-weight:400;margin-left:4px}
+.tag ul{margin:8px 0 12px;padding-left:18px;font-size:14px}
+.tag .eat{font-size:14px;margin:0 0 10px}
+.tag .acts{margin-top:auto;display:flex;gap:8px;flex-wrap:wrap}
+.tag .acts button{background:transparent;border:1px solid currentColor;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:14px}
+.empty{padding:24px;border:1px dashed var(--line);border-radius:10px;color:var(--muted)}
+
+/* main grid */
+.main{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:20px;margin:30px 0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.phead{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line)}
+.phead h3{margin:0;font-size:18px}
+.tabs{display:flex;gap:4px}
+.tabs button{border:0;background:transparent;padding:4px 10px;border-radius:6px;cursor:pointer;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--chip);color:var(--ink);font-weight:500}
+.search{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:4px 10px;width:9em}
+.tblwrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{font-weight:500;color:var(--muted);text-align:right;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none}
+th:nth-child(1),th:nth-child(2){text-align:left}
+td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+td:nth-child(1),td:nth-child(2){text-align:left}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--chip)}
+tbody tr.sel{background:var(--chip);box-shadow:inset 3px 0 0 var(--ink)}
+.star{border:0;background:transparent;cursor:pointer;font-size:17px;line-height:1;padding:2px;color:var(--muted)}
+.star.on{color:var(--accent)}
+.cname b{font-weight:500}.cname small{display:block;color:var(--muted);font-size:12px}
+.badge{display:inline-block;padding:1px 8px;border-radius:99px;font-size:12px;border:1px solid var(--line)}
+.badge.buy{background:var(--accent);border-color:var(--accent);color:#1E1400;font-weight:700}
+.badge.watch{border-color:var(--accent);color:var(--accent-ink)}
+.badge.pricey{border-color:var(--up);color:var(--up)}
+.badge.hold{color:var(--muted)}
+
+/* detail */
+.detail{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);align-self:start}
+.dhead{padding:16px 16px 8px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.dhead .nm{font-size:30px;font-weight:700;line-height:1.1}
+.dhead .sub{font-size:13px;color:var(--muted)}
+.dpx{font-size:36px;font-weight:700;line-height:1.1;text-align:right}
+.dpx small{display:block;font-size:14px;font-weight:500}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.stats div{padding:8px 12px;border-left:1px solid var(--line)}
+.stats div:nth-child(4n+1){border-left:0}
+.stats div:nth-child(n+5){border-top:1px solid var(--line)}
+.stats .k{font-size:12px;color:var(--muted)} .stats .v{font-weight:500}
+.chartbar{display:flex;justify-content:space-between;align-items:center;padding:10px 14px 0;font-size:13px;color:var(--muted);flex-wrap:wrap;gap:6px}
+.legend i{display:inline-block;width:14px;height:2px;vertical-align:middle;margin:0 4px 0 10px}
+.chartbox{position:relative;padding:4px 8px 8px}
+canvas{display:block;width:100%;height:300px}
+.tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12px;line-height:1.45;display:none;white-space:nowrap;z-index:2}
+.signal{padding:12px 16px;border-top:1px solid var(--line)}
+.signal h4{margin:0 0 6px;font-size:15px;display:flex;align-items:center;gap:8px}
+.meter{height:6px;border-radius:3px;background:var(--chip);overflow:hidden;margin:6px 0 8px}
+.meter i{display:block;height:100%;background:var(--accent)}
+.signal ul{margin:0;padding-left:18px;font-size:14px}
+.watchbox{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 16px 16px;border-top:1px solid var(--line);font-size:14px}
+.watchbox input{width:6em;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:4px 8px}
+
+/* alerts + notes */
+.alerts{margin:0 0 30px}
+.alerts h3{margin:0 0 8px;font-size:18px}
+.alist{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.alist li{padding:10px 14px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap;font-size:14px}
+.alist li:first-child{border-top:0}
+.alist .when{color:var(--muted)}
+details.note{margin:0 0 40px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 16px;font-size:14px}
+details.note summary{cursor:pointer;font-weight:500}
+details.note code{background:var(--chip);padding:1px 5px;border-radius:4px;font-size:13px;word-break:break-all}
+.maptbl{overflow-x:auto} .maptbl table{font-size:13px;margin-top:8px} .maptbl td,.maptbl th{text-align:left}
+
+.toasts{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:8px;z-index:10;max-width:calc(100% - 32px)}
+.toast{background:var(--ink);color:var(--bg);padding:10px 14px;border-radius:8px;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.2);border-left:4px solid var(--accent);animation:pop .25s ease-out}
+@keyframes pop{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.toast{animation:none}}
+
+@media (max-width:980px){
+  .main{grid-template-columns:1fr}
+  .detail{position:static}
+  .tags{grid-template-columns:1fr}
+  .tag{min-height:0}
+}
+@media (max-width:640px){
+  .wrap{padding:0 14px}
+  .brand h1{font-size:36px}
+  .indices{grid-template-columns:repeat(2,1fr)}
+  .idx:nth-child(3){border-left:0}
+  .idx:nth-child(n+3){border-top:1px solid var(--line)}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .stats div:nth-child(odd){border-left:0}
+  .stats div:nth-child(n+3){border-top:1px solid var(--line)}
+  .col-vol,.col-spark{display:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1 class="hand">菜盤</h1>
+      <p>用農業部農產品交易行情，像看股票一樣看菜價，挑今天值得買的蔬果。</p>
+    </div>
+    <div class="controls">
+      <label class="date" for="mk">市場</label>
+      <select id="mk" aria-label="選擇批發市場"></select>
+      <span class="date" id="dateLbl"></span>
+      <button class="btn" id="btnToday">回到今天</button>
+      <button class="btn primary" id="btnNext">下一交易日（模擬）</button>
+    </div>
+  </header>
+</div>
+
+<div class="ticker" aria-label="即時行情跑馬燈"><div class="ticker-in num" id="ticker"></div></div>
+
+<div class="wrap">
+  <section class="indices" id="indices" aria-label="大盤指數"></section>
+
+  <section class="board" aria-labelledby="boardTitle">
+    <div class="board-head">
+      <h2 class="hand" id="boardTitle">今天值得買</h2>
+      <p>依便宜程度、當季、均線、RSI 與到貨量綜合評分</p>
+    </div>
+    <div class="filters">
+      <div class="frow" id="fCat"><span>想吃什麼</span></div>
+      <div class="frow" id="fNeed"><span>身體需要</span></div>
+    </div>
+    <div class="tags" id="tags"></div>
+  </section>
+
+  <section class="main">
+    <div class="panel">
+      <div class="phead">
+        <h3>行情表</h3>
+        <div class="tabs" role="tablist" id="tabs">
+          <button role="tab" data-t="all">全部</button>
+          <button role="tab" data-t="veg">蔬菜</button>
+          <button role="tab" data-t="fruit">水果</button>
+          <button role="tab" data-t="fav">我的關注</button>
+        </div>
+        <input class="search" id="q" type="search" placeholder="搜尋品項" aria-label="搜尋品項">
+      </div>
+      <div class="tblwrap">
+        <table>
+          <thead><tr>
+            <th data-s="fav" aria-label="關注"></th>
+            <th data-s="name">品項</th>
+            <th data-s="c">平均價</th>
+            <th data-s="pct">漲跌幅</th>
+            <th data-s="v" class="col-vol">交易量</th>
+            <th class="col-spark">20日走勢</th>
+            <th data-s="score">評分</th>
+          </tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <aside class="panel detail" id="detail" aria-live="polite"></aside>
+  </section>
+
+  <section class="alerts" aria-labelledby="alTitle">
+    <h3 id="alTitle">買點提醒</h3>
+    <ul class="alist" id="alerts"></ul>
+  </section>
+
+  <details class="note">
+    <summary>關於資料與如何接上真實行情</summary>
+    <p>這個 DEMO 使用<strong>模擬資料</strong>（依季節、隨機波動，並加入一次模擬颱風：葉菜先暴漲，三週後因搶種而跌價），欄位格式對齊農業部「農產品交易行情」開放資料，換成真實資料即可運作。</p>
+    <p>開放資料端點：<code>https://data.moa.gov.tw/Service/OpenData/FromM/FarmTransData.aspx</code>（可帶 <code>StartDate</code>、<code>EndDate</code>、<code>Market</code>、<code>Crop</code> 等參數，日期為民國年，如 <code>115.09.29</code>；正確參數以平台文件為準）。</p>
+    <div class="maptbl"><table>
+      <tr><th>開放資料欄位</th><th>本系統用途</th></tr>
+      <tr><td>交易日期</td><td>K 線日期（民國年轉西元）</td></tr>
+      <tr><td>作物代號／作物名稱／種類代碼</td><td>品項與蔬菜、水果分類</td></tr>
+      <tr><td>市場代號／市場名稱</td><td>市場切換</td></tr>
+      <tr><td>上價、下價</td><td>K 線的高、低</td></tr>
+      <tr><td>平均價</td><td>收盤價；前一交易日平均價當開盤價</td></tr>
+      <tr><td>交易量</td><td>成交量柱、到貨量判斷</td></tr>
+    </table></div>
+    <p>建議架構：後端（Python／FastAPI）每日排程抓取並存進資料庫，計算均線、RSI、百分位等指標後提供 API 給前端；因瀏覽器跨網域限制，前端不宜直接呼叫政府 API。價格單位為元／公斤，顏色採台股慣例「紅漲綠跌」，對買菜的人來說綠色是好消息。</p>
+  </details>
+</div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script>
+/* ---------- 品項設定（示範） ---------- */
+const CROPS=[
+ // id, 開放資料名稱, 常用名, 類別, 大類, 基準價, 當季月份, 營養標籤, 日均量(公噸)
+ ['C01','甘藍-初秋','高麗菜','葉菜','veg',28,[10,11,12,1,2,3],['高纖','低熱量'],320],
+ ['C02','小白菜-土白菜','小白菜','葉菜','veg',32,[10,11,12,1,2,3,4],['補鈣','低熱量'],90],
+ ['C03','蕹菜-小葉','空心菜','葉菜','veg',38,[5,6,7,8,9,10],['補鐵','高纖'],70],
+ ['C04','甘薯葉','地瓜葉','葉菜','veg',30,[4,5,6,7,8,9,10],['補鐵','高纖'],55],
+ ['C05','青江白菜','青江菜','葉菜','veg',34,[10,11,12,1,2,3,4],['補鈣'],80],
+ ['C06','菠菜','菠菜','葉菜','veg',70,[11,12,1,2,3],['補鐵'],35],
+ ['C07','蘿蔔','白蘿蔔','根莖','veg',20,[11,12,1,2,3],['潤燥','低熱量'],120],
+ ['C08','胡蘿蔔','胡蘿蔔','根莖','veg',32,[12,1,2,3,4],['維生素A'],110],
+ ['C09','洋蔥','洋蔥','根莖','veg',26,[2,3,4,5],['抗氧化'],150],
+ ['C10','馬鈴薯','馬鈴薯','根莖','veg',32,[1,2,3,4],['飽足'],100],
+ ['C11','甘薯','地瓜','根莖','veg',30,[8,9,10,11,12],['高纖','飽足'],85],
+ ['C12','番茄-牛番茄','牛番茄','瓜果','veg',48,[12,1,2,3,4],['維生素C','抗氧化'],60],
+ ['C13','胡瓜','小黃瓜','瓜果','veg',42,[4,5,6,7,8,9,10],['低熱量','消暑'],75],
+ ['C14','絲瓜','絲瓜','瓜果','veg',38,[5,6,7,8,9],['消暑'],65],
+ ['C15','苦瓜','苦瓜','瓜果','veg',45,[5,6,7,8,9,10],['消暑'],40],
+ ['C16','茄子','茄子','瓜果','veg',38,[5,6,7,8,9,10],['抗氧化'],45],
+ ['C17','甜椒','甜椒','瓜果','veg',80,[11,12,1,2,3,4],['維生素C'],30],
+ ['C18','花椰菜','花椰菜','花果','veg',55,[11,12,1,2,3],['維生素C','高纖'],50],
+ ['C19','玉米-甜玉米','甜玉米','花果','veg',32,[3,4,5,6,7,8,9,10,11],['飽足'],70],
+ ['C20','杏鮑菇','杏鮑菇','菇類','veg',62,[1,2,3,4,5,6,7,8,9,10,11,12],['高纖','低熱量'],40],
+ ['C21','香菇','香菇','菇類','veg',160,[1,2,3,4,5,6,7,8,9,10,11,12],['免疫'],15],
+ ['C22','香蕉','香蕉','水果','fruit',32,[1,2,3,4,5,6,7,8,9,10,11,12],['補鉀','飽足'],160],
+ ['C23','番石榴-珍珠芭','芭樂','水果','fruit',42,[9,10,11,12,1,2,3],['維生素C','高纖'],70],
+ ['C24','鳳梨-金鑽鳳梨','鳳梨','水果','fruit',32,[3,4,5,6,7,8],['助消化'],110],
+ ['C25','木瓜','木瓜','水果','fruit',28,[1,2,3,4,5,6,7,8,9,10,11,12],['助消化'],60],
+ ['C26','柳橙-柳丁','柳丁','水果','fruit',32,[11,12,1,2],['維生素C'],80],
+ ['C27','文旦柚','文旦','水果','fruit',45,[8,9,10],['維生素C'],50],
+ ['C28','蓮霧','蓮霧','水果','fruit',95,[12,1,2,3,4],['消暑'],25],
+ ['C29','芒果-愛文','愛文芒果','水果','fruit',75,[5,6,7,8],['維生素A'],60],
+ ['C30','西瓜','西瓜','水果','fruit',22,[4,5,6,7,8],['消暑'],130],
+ ['C31','火龍果-紅肉','火龍果','水果','fruit',45,[6,7,8,9,10,11],['高纖'],45],
+ ['C32','百香果','百香果','水果','fruit',62,[7,8,9,10,11],['維生素C'],30],
+ ['C33','柿子-甜柿','甜柿','水果','fruit',70,[9,10,11],['維生素A'],35],
+ ['C34','梨-新興','梨子','水果','fruit',60,[7,8,9,10],['潤燥'],40],
+].map(a=>({id:a[0],raw:a[1],name:a[2],cat:a[3],type:a[4],base:a[5],season:a[6],tags:a[7],vol:a[8]}));
+
+const MARKETS=[
+ {id:'104',name:'台北一',m:1.00,vm:1.00},{id:'109',name:'台北二',m:1.03,vm:0.7},
+ {id:'241',name:'三重',m:0.98,vm:0.5},{id:'220',name:'板橋',m:1.01,vm:0.45},
+ {id:'400',name:'台中',m:0.95,vm:0.6},{id:'800',name:'高雄',m:0.97,vm:0.4}];
+
+const EAT={ '高纖':'高纖顧腸道','低熱量':'低熱量好控制','補鈣':'補鈣','補鐵':'補鐵','維生素A':'維生素 A 護眼',
+ '維生素C':'維生素 C 顧免疫','抗氧化':'抗氧化','飽足':'飽足感高','消暑':'消暑解熱','潤燥':'秋天潤燥',
+ '免疫':'多醣體','補鉀':'補鉀','助消化':'幫助消化'};
+const LEVEL={buy:'適合買',watch:'可留意',hold:'觀望',pricey:'偏貴'};
+
+/* ---------- 日期（週一休市） ---------- */
+const TODAY=new Date(2026,8,29);
+const TYPHOON=new Date(2026,8,5);
+const DATES=(()=>{const back=[],fwd=[];let d=new Date(TODAY);
+  while(back.length<130){if(d.getDay()!==1)back.unshift(new Date(d));d.setDate(d.getDate()-1)}
+  d=new Date(TODAY);d.setDate(d.getDate()+1);
+  while(fwd.length<12){if(d.getDay()!==1)fwd.push(new Date(d));d.setDate(d.getDate()+1)}
+  return back.concat(fwd)})();
+const TODAY_IDX=DATES.findIndex(d=>d.toDateString()===TODAY.toDateString());
+const WK='日一二三四五六';
+const md=d=>`${d.getMonth()+1}/${d.getDate()}`;
+const fullDate=d=>`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}（${WK[d.getDay()]}）`;
+
+/* ---------- 模擬行情 ---------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const inSeason=(c,m)=>c.season.includes(m);
+function seasonFactor(c,d){const m=d.getMonth()+1,nx=m%12+1,f=d.getDate()/31;
+  const s=x=>inSeason(c,x)?0.86:1.18;return s(m)*(1-f)+s(nx)*f}
+const CACHE={};
+function getSeries(){const mi=state.mi;if(CACHE[mi])return CACHE[mi];
+  CACHE[mi]=CROPS.map((c,ci)=>{const r=mulberry32(ci*1009+mi*7919+42);
+    const g=()=>{let u=0,v=0;while(!u)u=r();while(!v)v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)};
+    const mk=MARKETS[mi];const k=c.cat==='葉菜'?0.75:(c.cat==='瓜果'||c.cat==='花果')?0.35:c.type==='fruit'?0.15:0.1;
+    let x=0,prev=null;
+    return DATES.map(d=>{const diff=(d-TYPHOON)/864e5;let shock=1;
+      if(diff>=-2){shock=1+k*Math.exp(-Math.max(diff,0)/6)-0.35*k*Math.exp(-(((diff-22)/6)**2))}
+      x=0.82*x+g()*0.05;
+      const c1=+(c.base*seasonFactor(c,d)*shock*mk.m*Math.exp(x)).toFixed(1);
+      const o=prev?+(prev*(1+g()*0.015)).toFixed(1):c1;
+      const h=+(Math.max(o,c1)*(1.03+Math.abs(g())*0.05)).toFixed(1);
+      const l=+(Math.min(o,c1)*(0.97-Math.abs(g())*0.04)).toFixed(1);
+      const v=Math.max(1,Math.round(c.vol*(inSeason(c,d.getMonth()+1)?1.25:0.8)/Math.sqrt(Math.max(shock,.3))*Math.exp(g()*0.18)*mk.vm));
+      prev=c1;return{o,h,l,c:c1,v}})});
+  return CACHE[mi]}
+
+/* ---------- 指標與評分 ---------- */
+const avg=a=>a.reduce((s,v)=>s+v,0)/a.length;
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+function rsi(cl,n=14){let g=0,l=0;for(let i=cl.length-n;i<cl.length;i++){const d=cl[i]-cl[i-1];if(d>0)g+=d;else l-=d}
+  if(l===0)return 100;return 100-100/(1+g/l)}
+function maAt(cl,n,i){if(i<n-1)return null;let s=0;for(let j=i-n+1;j<=i;j++)s+=cl[j];return s/n}
+function analyze(ci){
+  const crop=CROPS[ci],s=getSeries()[ci],i=state.cur,t=s[i],y=s[i-1];
+  const cl=s.slice(0,i+1).map(p=>p.c);
+  const ma5=avg(cl.slice(-5)),ma20=avg(cl.slice(-20));
+  const w=cl.slice(-60),lo=Math.min(...w),hi=Math.max(...w);
+  const rank=w.filter(v=>v<t.c).length/(w.length-1);
+  const r=rsi(cl);const vr=t.v/avg(s.slice(i-19,i+1).map(p=>p.v));
+  const chg=t.c-y.c,pct=chg/y.c*100;const inS=inSeason(crop,DATES[i].getMonth()+1);
+  let score=0;const reasons=[];
+  score+=(1-rank)*40; if(rank<=0.2)reasons.push(`價格在近 60 日低檔（比 ${Math.round((1-rank)*100)}% 的日子便宜）`);
+  if(inS){score+=20;reasons.push('當季盛產')}
+  const below=(ma20-t.c)/ma20;score+=clamp(below/0.15,0,1)*20;
+  if(below>0.05)reasons.push(`比 20 日均價低 ${(below*100).toFixed(0)}%`);
+  if(r<30){score+=10;reasons.push(`RSI ${r.toFixed(0)}，短線跌深`)}else if(r<40)score+=5;
+  if(vr>1.15){score+=10;reasons.push('到貨量增加，供應充足')}else if(vr>1)score+=5;
+  if(below<-0.08)reasons.push(`比 20 日均價高 ${(-below*100).toFixed(0)}%`);
+  score=Math.round(score);
+  let level=score>=70?'buy':score>=50?'watch':(rank>=0.8?'pricey':'hold');
+  const fav=state.favs[crop.id];let hit=false;
+  if(fav&&fav.t&&t.c<=fav.t){hit=true;level='buy';reasons.unshift(`已跌破你設定的目標價 ${fav.t} 元`)}
+  return{ci,crop,t,y,chg,pct,ma5,ma20,lo,hi,rank,rsi:r,vr,score,reasons,level,hit,inS,
+    spark:cl.slice(-20),avg60:avg(w)}}
+
+/* ---------- 狀態與儲存 ---------- */
+const state={mi:0,cur:TODAY_IDX,sel:'C01',tab:'all',sort:'score',dir:-1,q:'',cat:'全部',need:'不限',range:60,favs:{},alerts:[],alerted:{}};
+const KEY='caipan-demo-v1';
+try{const v=localStorage.getItem(KEY);if(v){state.favs=JSON.parse(v).favs||{}}else{state.favs={C01:{t:null},C22:{t:null},C23:{t:38}}}}
+catch(e){state.favs={C01:{t:null},C22:{t:null},C23:{t:38}}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify({favs:state.favs}))}catch(e){}}
+
+/* ---------- 工具 ---------- */
+const $=s=>document.querySelector(s);
+const cls=v=>v>0.0001?'up':v<-0.0001?'down':'flat';
+const sign=v=>(v>0?'+':v<0?'−':'')+Math.abs(v).toFixed(1);
+const arrow=v=>v>0?'▲':v<0?'▼':'—';
+function sparkSvg(a){const w=80,h=24,mn=Math.min(...a),mx=Math.max(...a),rg=mx-mn||1;
+  const pts=a.map((v,i)=>`${(i/(a.length-1)*w).toFixed(1)},${(h-2-(v-mn)/rg*(h-4)).toFixed(1)}`).join(' ');
+  const c=a[a.length-1]>=a[0]?'var(--up)':'var(--down)';
+  return`<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${c}" stroke-width="1.5"/></svg>`}
+function toast(msg){const el=document.createElement('div');el.className='toast';el.textContent=msg;$('#toasts').appendChild(el);
+  setTimeout(()=>el.remove(),5200)}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- 渲染 ---------- */
+let AN=[];
+function render(){
+  AN=CROPS.map((_,i)=>analyze(i));
+  const d=DATES[state.cur];
+  $('#dateLbl').innerHTML=`交易日 <b class="num">${fullDate(d)}</b>${state.cur>TODAY_IDX?'<span class="simflag">模擬</span>':''}`;
+  $('#btnNext').disabled=state.cur>=DATES.length-1;
+  $('#btnToday').disabled=state.cur===TODAY_IDX;
+  renderTicker();renderIndices();renderBoard();renderTable();renderDetail();checkAlerts();renderAlerts()}
+
+function renderTicker(){const h=AN.map(a=>`<span class="tk"><b>${a.crop.name}</b><span class="${cls(a.chg)}">${a.t.c.toFixed(1)} ${arrow(a.chg)}${Math.abs(a.pct).toFixed(1)}%</span></span>`).join('');
+  $('#ticker').innerHTML=h+h}
+
+function indexOf(type,off){const s=getSeries();let sum=0,n=0;
+  CROPS.forEach((c,i)=>{if(c.type===type){sum+=s[i][state.cur-off].c/c.base;n++}});return sum/n*100}
+function renderIndices(){
+  const blk=(k,type)=>{const v=indexOf(type,0),p=indexOf(type,1),c=v-p;
+    return`<div class="idx"><div class="k">${k}</div><div class="v num">${v.toFixed(2)}</div><div class="s num ${cls(c)}">${arrow(c)} ${Math.abs(c).toFixed(2)}（${sign(c/p*100)}%）</div></div>`};
+  const buys=AN.filter(a=>a.level==='buy').length;
+  const favHits=AN.filter(a=>state.favs[a.crop.id]&&a.level==='buy').length;
+  const favN=Object.keys(state.favs).length;
+  $('#indices').innerHTML=blk('蔬菜價格指數','veg')+blk('水果價格指數','fruit')+
+   `<div class="idx"><div class="k">今日適合買</div><div class="v num">${buys}<small style="font-size:14px;font-weight:400"> / ${CROPS.length} 項</small></div><div class="s flat">評分 70 分以上</div></div>`+
+   `<div class="idx"><div class="k">我的關注觸發</div><div class="v num">${favHits}<small style="font-size:14px;font-weight:400"> / ${favN} 項</small></div><div class="s flat">${favHits?'有關注品項到買點了':'關注品項尚未到買點'}</div></div>`}
+
+function renderFilters(){
+  const cats=['全部','葉菜','根莖','瓜果','花果','菇類','水果'];
+  const needs=['不限','高纖','維生素C','補鐵','低熱量','消暑','潤燥'];
+  const mk=(el,list,key)=>{el.querySelectorAll('.chip').forEach(n=>n.remove());
+    list.forEach(v=>{const b=document.createElement('button');b.className='chip';b.textContent=v;b.setAttribute('aria-pressed',state[key]===v);
+      b.onclick=()=>{state[key]=v;renderFilters();renderBoard()};el.appendChild(b)})};
+  mk($('#fCat'),cats,'cat');mk($('#fNeed'),needs,'need')}
+
+function renderBoard(){
+  let list=AN.filter(a=>(state.cat==='全部'||a.crop.cat===state.cat)&&(state.need==='不限'||a.crop.tags.includes(state.need)));
+  list.sort((a,b)=>b.score-a.score);list=list.slice(0,3);
+  if(!list.length){$('#tags').innerHTML='<div class="empty">這個組合目前沒有品項，換一個「想吃什麼」或「身體需要」試試。</div>';return}
+  $('#tags').innerHTML=list.map(a=>{const fav=!!state.favs[a.crop.id];
+    const cheaper=(a.avg60-a.t.c)/a.avg60*100;
+    return`<article class="tag">
+      <div class="nm hand">${a.crop.name}</div>
+      <div class="sub">${a.crop.raw}｜${a.crop.cat}｜評分 ${a.score}</div>
+      <div class="px num hand">${a.t.c.toFixed(1)}<small>元／公斤</small></div>
+      <div class="sub num">${cheaper>=0?`比 60 日均價便宜 ${cheaper.toFixed(0)}%`:`比 60 日均價貴 ${(-cheaper).toFixed(0)}%`}，今日 <span class="${cls(a.chg)}">${arrow(a.chg)}${Math.abs(a.pct).toFixed(1)}%</span></div>
+      <ul>${a.reasons.slice(0,3).map(r=>`<li>${r}</li>`).join('')||'<li>價格平穩</li>'}</ul>
+      <p class="eat">適合吃：${a.crop.tags.map(t=>EAT[t]).join('、')}</p>
+      <div class="acts"><button data-go="${a.crop.id}">看走勢</button><button data-fav="${a.crop.id}">${fav?'★ 已關注':'☆ 加入關注'}</button></div>
+    </article>`}).join('');
+  $('#tags').querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{state.sel=b.dataset.go;renderTable();renderDetail();$('#detail').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth',block:'start'})});
+  $('#tags').querySelectorAll('[data-fav]').forEach(b=>b.onclick=()=>toggleFav(b.dataset.fav))}
+
+function renderTable(){
+  let list=AN.filter(a=>state.tab==='all'||(state.tab==='fav'?!!state.favs[a.crop.id]:a.crop.type===state.tab));
+  if(state.q)list=list.filter(a=>(a.crop.name+a.crop.raw).includes(state.q));
+  const key={fav:a=>state.favs[a.crop.id]?1:0,name:a=>a.crop.name,c:a=>a.t.c,pct:a=>a.pct,v:a=>a.t.v,score:a=>a.score}[state.sort];
+  list.sort((a,b)=>{const x=key(a),y=key(b);return(typeof x==='string'?x.localeCompare(y,'zh-Hant'):x-y)*state.dir});
+  document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.t===state.tab));
+  document.querySelectorAll('th[data-s]').forEach(th=>{const base=th.textContent.replace(/[ ▲▼]/g,'');
+    th.textContent=base+(th.dataset.s===state.sort&&base?(state.dir<0?' ▼':' ▲'):'')});
+  if(!list.length){$('#rows').innerHTML=`<tr><td colspan="7" style="text-align:left;color:var(--muted);padding:20px">${state.tab==='fav'?'還沒有關注品項。點品項左邊的 ☆ 加入，降價時會提醒你。':'找不到符合的品項。'}</td></tr>`;return}
+  $('#rows').innerHTML=list.map(a=>{const fav=!!state.favs[a.crop.id];
+    return`<tr data-id="${a.crop.id}" tabindex="0" class="${a.crop.id===state.sel?'sel':''}">
+      <td><button class="star ${fav?'on':''}" data-star="${a.crop.id}" aria-label="${fav?'取消關注':'加入關注'}${a.crop.name}">${fav?'★':'☆'}</button></td>
+      <td class="cname"><b>${a.crop.name}</b><small>${a.crop.raw}</small></td>
+      <td class="num">${a.t.c.toFixed(1)}</td>
+      <td class="num ${cls(a.chg)}">${arrow(a.chg)} ${Math.abs(a.pct).toFixed(1)}%</td>
+      <td class="num col-vol">${a.t.v.toLocaleString()} t</td>
+      <td class="col-spark">${sparkSvg(a.spark)}</td>
+      <td><span class="badge ${a.level}">${LEVEL[a.level]} ${a.score}</span></td></tr>`}).join('');
+  $('#rows').querySelectorAll('tr[data-id]').forEach(tr=>{
+    tr.onclick=()=>{state.sel=tr.dataset.id;renderTable();renderDetail()};
+    tr.onkeydown=e=>{if(e.key==='Enter'){state.sel=tr.dataset.id;renderTable();renderDetail()}}});
+  $('#rows').querySelectorAll('[data-star]').forEach(b=>b.onclick=e=>{e.stopPropagation();toggleFav(b.dataset.star)})}
+
+function renderDetail(){
+  const a=AN.find(x=>x.crop.id===state.sel);const fav=state.favs[a.crop.id];
+  $('#detail').innerHTML=`
+   <div class="dhead">
+     <div><div class="nm hand">${a.crop.name}</div><div class="sub">${a.crop.raw}｜${MARKETS[state.mi].name}市場｜${a.inS?'當季':'非當季'}｜元／公斤</div></div>
+     <div class="dpx num ${cls(a.chg)}">${a.t.c.toFixed(1)}<small>${arrow(a.chg)} ${Math.abs(a.chg).toFixed(1)}（${sign(a.pct)}%）</small></div>
+   </div>
+   <div class="stats num">
+     <div><div class="k">上價</div><div class="v">${a.t.h.toFixed(1)}</div></div>
+     <div><div class="k">下價</div><div class="v">${a.t.l.toFixed(1)}</div></div>
+     <div><div class="k">5 日均</div><div class="v">${a.ma5.toFixed(1)}</div></div>
+     <div><div class="k">20 日均</div><div class="v">${a.ma20.toFixed(1)}</div></div>
+     <div><div class="k">交易量</div><div class="v">${a.t.v.toLocaleString()} t</div></div>
+     <div><div class="k">RSI(14)</div><div class="v">${a.rsi.toFixed(0)}</div></div>
+     <div><div class="k">60 日低</div><div class="v">${a.lo.toFixed(1)}</div></div>
+     <div><div class="k">60 日高</div><div class="v">${a.hi.toFixed(1)}</div></div>
+   </div>
+   <div class="chartbar">
+     <span class="legend">紅漲綠跌<i style="background:var(--ink)"></i>5 日均<i style="background:var(--accent)"></i>20 日均</span>
+     <span class="tabs" id="rng">${[30,60,90].map(n=>`<button data-r="${n}" aria-selected="${state.range===n}">${n} 日</button>`).join('')}</span>
+   </div>
+   <div class="chartbox"><canvas id="cv" role="img" aria-label="${a.crop.name}近${state.range}個交易日 K 線圖"></canvas><div class="tip num" id="tip"></div></div>
+   <div class="signal">
+     <h4>買點評分 <span class="num">${a.score}</span> <span class="badge ${a.level}">${LEVEL[a.level]}</span></h4>
+     <div class="meter"><i style="width:${a.score}%"></i></div>
+     <ul>${a.reasons.map(r=>`<li>${r}</li>`).join('')||'<li>價格在正常區間，沒有明顯買點。</li>'}</ul>
+   </div>
+   <div class="watchbox">
+     <button class="btn ${fav?'':'primary'}" id="favBtn">${fav?'★ 已關注':'☆ 加入關注'}</button>
+     <label for="tgt">跌到</label><input id="tgt" class="num" type="number" min="0" step="0.5" inputmode="decimal" value="${fav&&fav.t?fav.t:''}" placeholder="${(a.ma20*0.9).toFixed(1)}">
+     <span>元以下提醒我</span>
+   </div>`;
+  $('#favBtn').onclick=()=>toggleFav(a.crop.id);
+  $('#tgt').onchange=e=>{const v=parseFloat(e.target.value);
+    state.favs[a.crop.id]={t:isFinite(v)&&v>0?v:null};save();toast(isFinite(v)&&v>0?`已設定：${a.crop.name}跌到 ${v} 元以下會提醒你`:`已清除${a.crop.name}的目標價`);render()};
+  $('#rng').querySelectorAll('button').forEach(b=>b.onclick=()=>{state.range=+b.dataset.r;renderDetail()});
+  drawChart(a)}
+
+/* ---------- K 線圖 ---------- */
+function drawChart(a){
+  const cv=$('#cv'),tip=$('#tip');if(!cv)return;
+  const dpr=window.devicePixelRatio||1,W=cv.clientWidth,H=300;cv.width=W*dpr;cv.height=H*dpr;
+  const ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);
+  const cs=getComputedStyle(document.documentElement),col=n=>cs.getPropertyValue(n).trim();
+  const s=getSeries()[a.ci],end=state.cur,st=Math.max(20,end-state.range+1);
+  const cl=s.map(p=>p.c),data=s.slice(st,end+1),n=data.length;
+  const ma5=data.map((_,k)=>maAt(cl,5,st+k)),ma20=data.map((_,k)=>maAt(cl,20,st+k));
+  const tgt=state.favs[a.crop.id]&&state.favs[a.crop.id].t;
+  let mn=Math.min(...data.map(p=>p.l)),mx=Math.max(...data.map(p=>p.h));
+  if(tgt){mn=Math.min(mn,tgt);mx=Math.max(mx,tgt)}
+  const pad=(mx-mn)*0.08;mn-=pad;mx+=pad;
+  const L=6,R=44,T=8,PH=H*0.7,VT=PH+26,VH=H-VT-18;const cw=(W-L-R)/n;
+  const y=v=>T+(mx-v)/(mx-mn)*(PH-T);const x=k=>L+cw*k+cw/2;
+  const vmax=Math.max(...data.map(p=>p.v));
+  ctx.clearRect(0,0,W,H);ctx.font='11px "Noto Sans TC",sans-serif';ctx.textBaseline='middle';
+  // grid
+  ctx.strokeStyle=col('--line');ctx.fillStyle=col('--muted');ctx.lineWidth=1;
+  for(let g=0;g<=4;g++){const v=mn+(mx-mn)*g/4,yy=Math.round(y(v))+.5;ctx.beginPath();ctx.moveTo(L,yy);ctx.lineTo(W-R,yy);ctx.stroke();ctx.fillText(v.toFixed(1),W-R+6,yy)}
+  const step=Math.ceil(n/6);ctx.textAlign='center';
+  for(let k=0;k<n;k+=step)ctx.fillText(md(DATES[st+k]),x(k),H-8);ctx.textAlign='left';
+  // target
+  if(tgt){ctx.setLineDash([4,4]);ctx.strokeStyle=col('--accent');ctx.beginPath();ctx.moveTo(L,y(tgt));ctx.lineTo(W-R,y(tgt));ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle=col('--accent');ctx.fillText('目標 '+tgt,L+4,y(tgt)-8)}
+  // candles + volume
+  const bw=Math.max(1,cw*0.62);
+  data.forEach((p,k)=>{const upc=p.c>=p.o,c=col(upc?'--up':'--down');ctx.strokeStyle=c;ctx.fillStyle=c;
+    ctx.beginPath();ctx.moveTo(x(k),y(p.h));ctx.lineTo(x(k),y(p.l));ctx.stroke();
+    const top=y(Math.max(p.o,p.c)),hgt=Math.max(1,Math.abs(y(p.o)-y(p.c)));ctx.fillRect(x(k)-bw/2,top,bw,hgt);
+    ctx.globalAlpha=.45;const vh=p.v/vmax*VH;ctx.fillRect(x(k)-bw/2,VT+VH-vh,bw,vh);ctx.globalAlpha=1});
+  const line=(arr,c)=>{ctx.strokeStyle=c;ctx.lineWidth=1.5;ctx.beginPath();let f=true;arr.forEach((v,k)=>{if(v==null)return;f?ctx.moveTo(x(k),y(v)):ctx.lineTo(x(k),y(v));f=false});ctx.stroke();ctx.lineWidth=1};
+  line(ma5,col('--ink'));line(ma20,col('--accent'));
+  ctx.fillStyle=col('--muted');ctx.fillText('交易量',L+2,VT-8);
+  // hover
+  const base=ctx.getImageData(0,0,cv.width,cv.height);
+  cv.onmousemove=e=>{const r=cv.getBoundingClientRect(),mxp=e.clientX-r.left,k=clamp(Math.floor((mxp-L)/cw),0,n-1),p=data[k];
+    ctx.putImageData(base,0,0);ctx.strokeStyle=col('--muted');ctx.setLineDash([3,3]);ctx.beginPath();ctx.moveTo(x(k),T);ctx.lineTo(x(k),VT+VH);ctx.stroke();ctx.setLineDash([]);
+    const pc=k>0?data[k-1].c:p.o,ch=(p.c-pc)/pc*100;
+    tip.innerHTML=`<b>${fullDate(DATES[st+k])}</b><br>平均價 ${p.c.toFixed(1)}（<span class="${cls(ch)}">${sign(ch)}%</span>）<br>上價 ${p.h.toFixed(1)}　下價 ${p.l.toFixed(1)}<br>交易量 ${p.v.toLocaleString()} t`;
+    tip.style.display='block';const tw=tip.offsetWidth;tip.style.left=(x(k)+12+tw>W?x(k)-tw-4:x(k)+12)+'px';tip.style.top='12px'};
+  cv.onmouseleave=()=>{ctx.putImageData(base,0,0);tip.style.display='none'}}
+
+/* ---------- 關注與提醒 ---------- */
+function toggleFav(id){const c=CROPS.find(x=>x.id===id);
+  if(state.favs[id]){delete state.favs[id];toast(`已取消關注${c.name}`)}else{state.favs[id]={t:null};toast(`已關注${c.name}，到買點時會提醒你`)}
+  save();render()}
+function checkAlerts(){
+  AN.forEach(a=>{if(!state.favs[a.crop.id]||a.level!=='buy')return;
+    const k=`${state.mi}-${a.crop.id}-${state.cur}`;if(state.alerted[k])return;state.alerted[k]=1;
+    const msg=`${a.crop.name}今天 ${a.t.c.toFixed(1)} 元，${a.reasons[0]||'到買點了'}`;
+    state.alerts.unshift({d:DATES[state.cur],mk:MARKETS[state.mi].name,msg,id:a.crop.id});toast('📉 '+msg)})}
+function renderAlerts(){
+  $('#alerts').innerHTML=state.alerts.length?state.alerts.slice(0,12).map(al=>`<li><span>📉 ${esc(al.msg)}</span><span class="when num">${al.mk}｜${fullDate(al.d)}</span></li>`).join('')
+    :'<li><span class="when">目前沒有提醒。關注品項到買點或跌破目標價時會出現在這裡，也可以按「下一交易日（模擬）」看看變化。</span></li>'}
+
+/* ---------- 綁定 ---------- */
+MARKETS.forEach((m,i)=>{const o=document.createElement('option');o.value=i;o.textContent=m.name+'市場';$('#mk').appendChild(o)});
+$('#mk').onchange=e=>{state.mi=+e.target.value;render()};
+$('#btnNext').onclick=()=>{if(state.cur<DATES.length-1){state.cur++;render()}};
+$('#btnToday').onclick=()=>{state.cur=TODAY_IDX;render()};
+$('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{state.tab=b.dataset.t;renderTable()});
+$('#q').oninput=e=>{state.q=e.target.value.trim();renderTable()};
+document.querySelectorAll('th[data-s]').forEach(th=>th.onclick=()=>{const s=th.dataset.s;if(state.sort===s)state.dir*=-1;else{state.sort=s;state.dir=s==='name'?1:-1}renderTable()});
+let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{const a=AN.find(x=>x.crop.id===state.sel);if(a)drawChart(a)},120)});
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{const a=AN.find(x=>x.crop.id===state.sel);if(a)drawChart(a)});
+renderFilters();render();
+if(document.fonts)document.fonts.ready.then(()=>{const a=AN.find(x=>x.crop.id===state.sel);if(a)drawChart(a)});
+</script>
+</body>
+</html>
