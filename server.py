@@ -1,7 +1,9 @@
 """
 server.py - 菜盤本地測試與預覽伺服器
-運行方式：python server.py
-即可在 http://localhost:8000 開啟網站，並支援點擊重新整理或手動觸發爬蟲。
+運行方式：
+  python server.py           (預設使用 8080，若被佔用會自動遞增尋找可用 port)
+  python server.py 3000      (指定 port 為 3000)
+  python server.py 8888      (指定 port 為 8888)
 """
 
 import http.server
@@ -12,7 +14,7 @@ import sys
 import os
 import mimetypes
 
-PORT = 8000
+DEFAULT_PORT = 8080
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 
 # 註冊常見 MIME 類型
@@ -51,21 +53,51 @@ class CaipanHandler(http.server.SimpleHTTPRequestHandler):
 
         return super().do_GET()
 
+def get_target_port():
+    # 支援命令列指定 port: python server.py 3000
+    for arg in sys.argv[1:]:
+        if arg.isdigit():
+            return int(arg)
+        if arg.startswith('--port='):
+            val = arg.split('=', 1)[1]
+            if val.isdigit():
+                return int(val)
+    return DEFAULT_PORT
+
 def run_server():
     os.chdir(DIRECTORY)
-    with socketserver.TCPServer(("", PORT), CaipanHandler) as httpd:
-        url = f"http://localhost:{PORT}"
-        print(f"==================================================")
-        print(f"  菜盤｜蔬果行情與買點推薦 伺服器啟動成功！")
-        print(f"  本地網址: {url}")
-        print(f"  請在瀏覽器開啟該網址預覽 PWA 效果")
-        print(f"  按 Ctrl + C 可停止伺服器")
-        print(f"==================================================")
-        webbrowser.open(url)
+    start_port = get_target_port()
+    port = start_port
+    httpd = None
+
+    socketserver.TCPServer.allow_reuse_address = True
+
+    # 若指定 Port 被其他程式佔用，自動嘗試下一個可用 Port
+    while port < start_port + 50:
         try:
-            httpd.serve_forever()
-        except KeyboardInterrupt:
-            print("\n伺服器已停止。")
+            httpd = socketserver.TCPServer(("", port), CaipanHandler)
+            break
+        except OSError:
+            print(f"Port {port} 已被佔用，嘗試下一個 Port {port + 1}...")
+            port += 1
+
+    if not httpd:
+        print(f"錯誤：無法在 {start_port} ~ {port} 範圍內找到可用的 Port！")
+        return
+
+    url = f"http://localhost:{port}"
+    print(f"==================================================")
+    print(f"  菜盤｜蔬果行情與買點推薦 伺服器啟動成功！")
+    print(f"  本地網址: {url}")
+    print(f"  （可使用參數指定 port，例如：python server.py 3000）")
+    print(f"  按 Ctrl + C 可停止伺服器")
+    print(f"==================================================")
+
+    webbrowser.open(url)
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        print("\n伺服器已停止。")
 
 if __name__ == '__main__':
     run_server()

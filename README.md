@@ -93,9 +93,10 @@ git push -u origin main
 
 1. 確保電腦安裝有 Python 3：
 ```bash
-python server.py
+python server.py          # 預設開啟 http://localhost:8080（若被佔用會自動找下一個可用 port）
+python server.py 3000     # 或指定任意 port，例如 3000
 ```
-2. 瀏覽器會自動開啟 `http://localhost:8000`。
+2. 瀏覽器會自動開啟對應網址。
 3. 手動更新本地數據測試：
 ```bash
 python scripts/fetch_data.py
