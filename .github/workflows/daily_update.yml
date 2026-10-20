@@ -15,13 +15,13 @@ jobs:
 
     steps:
       - name: 檢出專案代碼
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
+      # fetch_data.py 只用標準函式庫，沒有 requirements.txt，因此不開 pip 快取
       - name: 設定 Python 環境
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
-          cache: 'pip'
 
       - name: 執行行情爬蟲與指標計算
         run: |
