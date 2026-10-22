@@ -533,7 +533,12 @@ function render(){
   // 更新日期顯示
   const dateLbl = $('#dateLbl');
   if(state.isLive && state.tradeDateStr){
-    dateLbl.innerHTML = `交易日 <b class="num">${state.tradeDateStr}</b> <span class="simflag live">● 農業部即時行情</span>`;
+    const rawCheckedAt = state.liveData.updated_at;
+    // 舊版 GitHub Actions 時間未帶時區，實際為 UTC。
+    const checkedAt = rawCheckedAt ? new Date(/[zZ]$|[+-]\d{2}:\d{2}$/.test(rawCheckedAt) ? rawCheckedAt : rawCheckedAt + 'Z') : null;
+    const checkedLabel = checkedAt && !Number.isNaN(checkedAt.getTime())
+      ? checkedAt.toLocaleString('zh-TW', {timeZone: 'Asia/Taipei', hour12: false}) : '尚無紀錄';
+    dateLbl.innerHTML = `行情日期 <b class="num">${esc(state.tradeDateStr)}</b> <span class="simflag live">● 農業部拍賣行情</span><br>最後檢查時間（台灣）：<span class="num">${esc(checkedLabel)}</span><br>每日 08:00、12:00、15:00、18:00 自動檢查；行情依來源公布進度更新。`;
   } else {
     dateLbl.innerHTML = `交易日 <b class="num">${DATES[DATES.length-1].toLocaleDateString()}</b> <span class="simflag">離線/備援模式</span>`;
   }
@@ -940,7 +945,7 @@ async function loadLiveData(){
         MARKETS = data.markets;
         initMarkets();
       }
-      toast('✅ 行情已更新為最新農業部拍賣資料');
+      toast('✅ 已讀取行情，資料日期：' + state.tradeDateStr);
     } else {
       throw new Error('無法載入 data/latest.json');
     }

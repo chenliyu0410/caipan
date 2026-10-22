@@ -1,5 +1,5 @@
 // 菜盤 PWA Service Worker
-const CACHE_NAME = 'caipan-shell-v1';
+const CACHE_NAME = 'caipan-shell-v2';
 const DATA_CACHE_NAME = 'caipan-data-v1';
 
 const STATIC_ASSETS = [

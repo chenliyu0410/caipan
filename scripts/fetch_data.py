@@ -11,6 +11,7 @@ import time
 import urllib.request
 import urllib.parse
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 # 確保輸出支援 UTF-8
 if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
@@ -146,7 +147,7 @@ def update_history_data(days_back: int = 40):
     existing_dates = set(history.get("dates", []))
     records = history.get("records", {})
 
-    now = datetime.now()
+    now = datetime.now(ZoneInfo("Asia/Taipei"))
     dates_to_fetch = []
     
     # 決定抓取的日期清單（由舊到新）
@@ -261,7 +262,7 @@ def build_latest_dataset():
     formatted_date = f"{latest_dt.year}/{latest_dt.month:02d}/{latest_dt.day:02d}（{weekday_str}）"
 
     output = {
-        "updated_at": datetime.now().isoformat(),
+        "updated_at": datetime.now(ZoneInfo("Asia/Taipei")).isoformat(),
         "trade_date": latest_roc,
         "formatted_date": formatted_date,
         "is_real_data": True,
