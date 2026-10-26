@@ -12,6 +12,7 @@ permissions:
 jobs:
   update-market-data:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: 檢出專案代碼
@@ -23,11 +24,15 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: 驗證行情抓取錯誤處理
+        run: python -m unittest discover -s tests
+
       - name: 執行行情爬蟲與指標計算
         run: |
           python scripts/fetch_data.py
 
       - name: 提交並推送最新數據至 GitHub
+        if: ${{ !cancelled() }}
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
