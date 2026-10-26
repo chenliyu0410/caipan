@@ -1,5 +1,16 @@
 {
-  "updated_at": "2026-10-26T11:06:53.460693+08:00",
+  "updated_at": "2026-10-26T13:51:38.183728+08:00",
+  "fetch_status": {
+    "state": "failed",
+    "failed_dates": [
+      "115.10.26",
+      "115.10.25",
+      "115.10.24",
+      "115.10.23",
+      "115.09.27"
+    ],
+    "successful_dates": []
+  },
   "trade_date": "115.10.22",
   "formatted_date": "2026/10/22（四）",
   "is_real_data": true,
