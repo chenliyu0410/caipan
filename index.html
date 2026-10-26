@@ -538,7 +538,13 @@ function render(){
     const checkedAt = rawCheckedAt ? new Date(/[zZ]$|[+-]\d{2}:\d{2}$/.test(rawCheckedAt) ? rawCheckedAt : rawCheckedAt + 'Z') : null;
     const checkedLabel = checkedAt && !Number.isNaN(checkedAt.getTime())
       ? checkedAt.toLocaleString('zh-TW', {timeZone: 'Asia/Taipei', hour12: false}) : '尚無紀錄';
-    dateLbl.innerHTML = `行情日期 <b class="num">${esc(state.tradeDateStr)}</b> <span class="simflag live">● 農業部拍賣行情</span><br>最後檢查時間（台灣）：<span class="num">${esc(checkedLabel)}</span><br>每日 08:00、12:00、15:00、18:00 自動檢查；行情依來源公布進度更新。`;
+    const fetchState = state.liveData.fetch_status?.state;
+    const fetchWarning = fetchState === 'failed' ? '⚠️ 最近一次抓取失敗，目前顯示保留行情。' : fetchState === 'partial' ? '⚠️ 部分日期抓取失敗，行情可能不完整。' : '';
+    const tradeDay = String(state.liveData.trade_date || '').split('.').map(Number);
+    const tradeTime = tradeDay.length === 3 ? Date.UTC(tradeDay[0] + 1911, tradeDay[1] - 1, tradeDay[2]) : NaN;
+    const today = new Date().toLocaleDateString('en-CA', {timeZone: 'Asia/Taipei'});
+    const staleWarning = Date.parse(today + 'T00:00:00Z') - tradeTime > 3 * 86400000 ? '⚠️ 行情已超過三天，可能休市、來源尚未公布或更新異常。' : '';
+    dateLbl.innerHTML = `行情日期 <b class="num">${esc(state.tradeDateStr)}</b> <span class="simflag live">● 農業部拍賣行情</span><br>最後檢查時間（台灣）：<span class="num">${esc(checkedLabel)}</span><br>每日 08:00、12:00、15:00、18:00 自動檢查；行情依來源公布進度更新。${fetchWarning ? `<br><strong role="status">${esc(fetchWarning)}</strong>` : ''}${staleWarning ? `<br><strong>${esc(staleWarning)}</strong>` : ''}`;
   } else {
     dateLbl.innerHTML = `交易日 <b class="num">${DATES[DATES.length-1].toLocaleDateString()}</b> <span class="simflag">離線/備援模式</span>`;
   }
@@ -934,7 +940,7 @@ function renderAlerts(){
 async function loadLiveData(){
   $('#btnRefresh').textContent = '⏳ 讀取中';
   try{
-    const res = await fetch('data/latest.json?t=' + Date.now());
+    const res = await fetch('data/latest.json', {cache: 'no-store'});
     if(res.ok){
       const data = await res.json();
       state.liveData = data;
@@ -945,13 +951,14 @@ async function loadLiveData(){
         MARKETS = data.markets;
         initMarkets();
       }
-      toast('✅ 已讀取行情，資料日期：' + state.tradeDateStr);
+      toast((['failed', 'partial'].includes(data.fetch_status?.state) ? '⚠️ 抓取異常，目前可用行情：' : '✅ 已讀取行情，資料日期：') + state.tradeDateStr);
     } else {
       throw new Error('無法載入 data/latest.json');
     }
   }catch(e){
     console.warn('使用備援示範數據:', e);
-    state.isLive = false;
+    toast(state.liveData ? '⚠️ 無法連線，保留上次讀取的行情。' : '⚠️ 無法讀取行情，目前顯示示範資料。');
+    state.isLive = Boolean(state.liveData);
   }finally{
     $('#btnRefresh').textContent = '🔄 更新';
     render();

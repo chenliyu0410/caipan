@@ -94,14 +94,18 @@ def fetch_moa_date(roc_date: str, retries: int = 3):
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Caipan/1.0"})
     for attempt in range(retries):
         try:
-            with urllib.request.urlopen(req, context=SSL_CTX, timeout=15) as resp:
+            with urllib.request.urlopen(req, context=SSL_CTX, timeout=45) as resp:
                 content = resp.read().decode("utf-8")
-                return json.loads(content)
+                items = json.loads(content)
+                if not isinstance(items, list) or not all(isinstance(item, dict) for item in items):
+                    raise ValueError("API 回傳格式不正確")
+                return items
         except Exception as e:
             if attempt == retries - 1:
                 print(f"[{roc_date}] 抓取失敗: {e}")
                 return None
-            time.sleep(1.5)
+            print(f"[{roc_date}] 第 {attempt + 1} 次失敗，稍後重試: {e}")
+            time.sleep(min(2 ** (attempt + 1), 8))
     return None
 
 def find_matched_crop(raw_crop_code: str, raw_crop_name: str):
@@ -149,6 +153,8 @@ def update_history_data(days_back: int = 40):
 
     now = datetime.now(ZoneInfo("Asia/Taipei"))
     dates_to_fetch = []
+    failed_dates = []
+    successful_dates = []
     
     # 決定抓取的日期清單（由舊到新）
     for i in range(days_back, -1, -1):
@@ -160,11 +166,14 @@ def update_history_data(days_back: int = 40):
 
     print(f"準備更新 {len(dates_to_fetch)} 個日期的交易數據...")
 
-    for d, roc in dates_to_fetch:
+    # 優先取得最新行情，再補查歷史缺漏。
+    for d, roc in reversed(dates_to_fetch):
         print(f"正在查詢 {roc} ({d.strftime('%Y-%m-%d')})...")
         raw_items = fetch_moa_date(roc)
         if raw_items is None:
+            failed_dates.append(roc)
             continue
+        successful_dates.append(roc)
         
         # 檢查是否全為休市
         active_items = [x for x in raw_items if x.get("作物名稱") != "休市"]
@@ -227,7 +236,7 @@ def update_history_data(days_back: int = 40):
     
     save_history(history)
     print(f"歷史資料更新完成，共保留 {len(history['dates'])} 個有效交易日！")
-    return history
+    return {"failed_dates": failed_dates, "successful_dates": successful_dates}
 
 def rsi(series_c, n=14):
     """計算 RSI(14)"""
@@ -245,7 +254,7 @@ def rsi(series_c, n=14):
     rs = gains / losses
     return round(100.0 - (100.0 / (1.0 + rs)), 1)
 
-def build_latest_dataset():
+def build_latest_dataset(fetch_status):
     """依據最新歷史資料，計算均線、RSI、買點評分並產出最新前端專用 JSON"""
     history = load_history()
     dates = history.get("dates", [])
@@ -263,6 +272,7 @@ def build_latest_dataset():
 
     output = {
         "updated_at": datetime.now(ZoneInfo("Asia/Taipei")).isoformat(),
+        "fetch_status": fetch_status,
         "trade_date": latest_roc,
         "formatted_date": formatted_date,
         "is_real_data": True,
@@ -407,6 +417,13 @@ def build_latest_dataset():
 
 if __name__ == "__main__":
     print("=== 菜盤：農業部行情數據更新開始 ===")
-    update_history_data(days_back=35)
-    build_latest_dataset()
+    report = update_history_data(days_back=35)
+    fetch_status = {
+        "state": "failed" if not report["successful_dates"] else ("partial" if report["failed_dates"] else "ok"),
+        **report,
+    }
+    dataset = build_latest_dataset(fetch_status)
+    if report["failed_dates"] or dataset is None:
+        print("::error::行情抓取不完整，已保留可用行情並記錄失敗日期；請檢查來源連線。")
+        sys.exit(1)
     print("=== 所有更新工作完成 ===")

@@ -1,6 +1,6 @@
 // 菜盤 PWA Service Worker
-const CACHE_NAME = 'caipan-shell-v2';
-const DATA_CACHE_NAME = 'caipan-data-v1';
+const CACHE_NAME = 'caipan-shell-v3';
+const DATA_CACHE_NAME = 'caipan-data-v2';
 
 const STATIC_ASSETS = [
   './',
@@ -41,13 +41,14 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
   // 1. 行情數據請求：網路優先 (Network First)，失敗時回退快取
-  if (url.pathname.includes('/data/latest.json')) {
+  if (url.origin === self.location.origin && url.pathname.endsWith('/data/latest.json')) {
     event.respondWith(
-      fetch(event.request)
+      fetch(event.request, {cache: 'no-store'})
         .then(response => {
+          if (!response.ok) throw new Error('行情下載失敗');
           if (response && response.status === 200) {
             const respClone = response.clone();
-            caches.open(DATA_CACHE_NAME).then(cache => cache.put(event.request, respClone));
+            event.waitUntil(caches.open(DATA_CACHE_NAME).then(cache => cache.put(event.request, respClone)));
           }
           return response;
         })
@@ -55,6 +56,22 @@ self.addEventListener('fetch', event => {
           return caches.match(event.request);
         })
     );
+    return;
+  }
+
+  // 首頁採網路優先，離線時才回退已儲存的頁面。
+  if (url.origin === self.location.origin && event.request.mode === 'navigate') {
+    event.respondWith((async () => {
+      try {
+        const response = await fetch(event.request, {cache: 'no-cache'});
+        if (!response.ok) throw new Error('頁面下載失敗');
+        const cache = await caches.open(CACHE_NAME);
+        await cache.put(event.request, response.clone());
+        return response;
+      } catch (error) {
+        return (await caches.match(event.request)) || (await caches.match('./index.html')) || Response.error();
+      }
+    })());
     return;
   }
 
