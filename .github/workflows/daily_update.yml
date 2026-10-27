@@ -4,9 +4,11 @@ permissions:
   contents: read
 jobs:
   probe:
-    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        os: [macos-15, windows-2022, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.os }}
     steps:
-      - run: |
-          for url in 'https://data.moa.gov.tw/' 'https://data.moa.gov.tw/api/v1/AgriProductsTransType/?Start_time=115.10.26&End_time=115.10.26' 'https://data.moa.gov.tw/Service/OpenData/FromM/FarmTransData.aspx?StartDate=115.10.26&EndDate=115.10.26' 'https://data.coa.gov.tw/Service/OpenData/FromM/FarmTransData.aspx?StartDate=115.10.26&EndDate=115.10.26'; do
-            curl -4 -k -L --connect-timeout 5 --max-time 10 -o /tmp/response -w "$url HTTP=%{http_code} IP=%{remote_ip} time=%{time_total}\n" "$url" || true
-          done
+      - shell: bash
+        run: |
+          curl -4 -k -L --connect-timeout 5 --max-time 15 -o response.json -w 'HTTP=%{http_code} IP=%{remote_ip} time=%{time_total}\n' 'https://data.moa.gov.tw/Service/OpenData/FromM/FarmTransData.aspx?StartDate=115.10.26&EndDate=115.10.26' || true
