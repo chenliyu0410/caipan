@@ -1,13 +1,45 @@
-name: Probe market source connectivity
-on: workflow_dispatch
+name: 每日自動更新農產品行情數據
+
+on:
+  schedule:
+    # 台灣時間每日 08:00、12:00、15:00、18:00 自動執行（GitHub 排程可能延遲）
+    - cron: '0 0,4,7,10 * * *'
+  workflow_dispatch: # 支援在 GitHub 頁面上一鍵手動觸發
+
 permissions:
-  contents: read
+  contents: write
+
 jobs:
-  probe:
-    runs-on: ubuntu-24.04
+  update-market-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
     steps:
-      - run: |
-          getent ahostsv4 data.moa.gov.tw
-          for url in 'http://data.moa.gov.tw/Service/OpenData/FromM/FarmTransData.aspx?StartDate=115.10.26&EndDate=115.10.26' 'https://data.gov.tw/api/v2/rest/dataset/8066' 'https://m.moa.gov.tw/Transaction/AgriculturalProduct/Detail'; do
-            curl -4 -k -L --connect-timeout 5 --max-time 10 -o /tmp/response -w "$url HTTP=%{http_code} IP=%{remote_ip} time=%{time_total}\n" "$url" || true
-          done
+      - name: 檢出專案代碼
+        uses: actions/checkout@v5
+
+      # fetch_data.py 只用標準函式庫，沒有 requirements.txt，因此不開 pip 快取
+      - name: 設定 Python 環境
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: 驗證行情抓取錯誤處理
+        run: python -m unittest discover -s tests
+
+      - name: 執行行情爬蟲與指標計算
+        run: |
+          python scripts/fetch_data.py
+
+      - name: 提交並推送最新數據至 GitHub
+        if: ${{ !cancelled() }}
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add data/history.json data/latest.json
+          if ! git diff-index --quiet HEAD --; then
+            git commit -m "chore: 每日自動更新農產品行情數據 [skip ci]"
+            git push
+          else
+            echo "今日行情已是最新，無需提交。"
+          fi
