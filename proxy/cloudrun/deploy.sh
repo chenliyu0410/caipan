@@ -21,6 +21,15 @@ if [ -z "$project" ] || [ "$project" = "(unset)" ]; then
 fi
 echo "專案：$project    區域：$REGION"
 
+# 建置服務帳戶預設交給 Cloud Build 自行選擇（會用專案的預設 Compute 服務帳戶）。
+# 新專案的預設 Compute 服務帳戶可能沒有任何角色，建置會在讀取原始碼時被擋，
+# 這時請見 proxy/README.md 的「建置權限」一節。要指定自建的服務帳戶，設 BUILD_SA。
+build_args=()
+if [ -n "${BUILD_SA:-}" ]; then
+  build_args+=(--build-service-account "$BUILD_SA")
+  echo "建置服務帳戶：${BUILD_SA##*/}"
+fi
+
 # 密鑰：沿用既有的，沒有就隨機產生一組
 token="$(gcloud run services describe "$SERVICE" --region "$REGION" \
           --format='value(spec.template.spec.containers[0].env.filter("name","CAIPAN_TOKEN").extract("value"))' \
@@ -31,11 +40,13 @@ if [ -z "$token" ]; then
   echo "產生新的 CAIPAN_TOKEN（稍後要填進 GitHub Secrets）"
 fi
 
-echo "== 部署中（第一次約 3～5 分鐘）=="
+# 預設部署成需要 IAM 驗證的私有服務。要讓 GitHub Actions 直接用共用密鑰呼叫，
+# 請自行決定是否開放未驗證存取（見 proxy/README.md）。
+echo "== 部署中（第一次約 3～5 分鐘，預設為私有服務）=="
 gcloud run deploy "$SERVICE" \
   --source . \
   --region "$REGION" \
-  --allow-unauthenticated \
+  "${build_args[@]}" \
   --set-env-vars "CAIPAN_TOKEN=$token" \
   --quiet
 
@@ -46,7 +57,10 @@ echo "== 驗證：從 Cloud Run（台灣）抓 $TEST_DATE 的行情 =="
 target="https://data.moa.gov.tw/Service/OpenData/FromM/FarmTransData.aspx?StartDate=${TEST_DATE}&EndDate=${TEST_DATE}"
 encoded="$(python -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1],safe=""))' "$target")"
 
+# 私有服務：用目前登入身分的 ID token 呼叫
+idtoken="$(gcloud auth print-identity-token)"
 code="$(curl -sS -m 90 -o /tmp/caipan_probe.json -w '%{http_code}' \
+        -H "Authorization: Bearer $idtoken" \
         -H "X-Caipan-Token: $token" "${url}/?url=${encoded}" || echo 000)"
 count="$(python -c 'import json;d=json.load(open("/tmp/caipan_probe.json",encoding="utf-8"));print(len(d) if isinstance(d,list) else -1)' 2>/dev/null || echo -1)"
 
@@ -54,9 +68,11 @@ echo
 if [ "$code" = "200" ] && [ "$count" -gt 0 ]; then
   echo "成功：取回 $count 筆。Cloud Run 的台灣出口 IP 沒有被來源擋。"
   echo
-  echo "接著把這兩個值填進 GitHub（Settings → Secrets and variables → Actions）："
-  echo "  Variables  MOA_PROXY_BASE  = ${url}/?url={url}"
-  echo "  Secrets    MOA_PROXY_TOKEN = ${token}"
+  echo "服務網址： ${url}"
+  echo "共用密鑰： ${token}"
+  echo
+  echo "服務目前是私有的（需要 IAM 驗證）。要讓 GitHub Actions 能呼叫，"
+  echo "請先決定對外存取方式，見 proxy/README.md。"
 else
   echo "失敗：HTTP=$code，解析到 $count 筆。"
   echo "若 HTTP 是 502，代表 Cloud Run 的位址同樣被來源擋掉，"

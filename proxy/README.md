@@ -74,6 +74,58 @@ Worker 永遠不會在台灣節點執行過，Smart Placement 也就永遠不會
 
 程式碼保留在 `proxy/cloudflare/`，若日後流量型態改變或改用可指定區域的方案再啟用。
 
+### 建置權限（新專案常見卡關）
+
+`gcloud run deploy --source` 會用 Cloud Build 建置。GCP 從 2024 年起不再自動給專案的
+預設 Compute 服務帳戶任何角色，權限不足時會看到：
+
+```
+ERROR: ... 204350838529-compute@developer.gserviceaccount.com does not have
+storage.objects.get access to the Google Cloud Storage object
+```
+
+補上標準角色即可（`<專案編號>` 是純數字的 project number，不是專案 ID）：
+
+```bash
+gcloud projects add-iam-policy-binding <專案ID> \
+    --member=serviceAccount:<專案編號>-compute@developer.gserviceaccount.com \
+    --role=roles/cloudbuild.builds.builder
+```
+
+注意 Google 託管的 `<專案編號>@cloudbuild.gserviceaccount.com` **不能**拿來當
+`--build-service-account`，Cloud Build 只接受使用者自建的服務帳戶。
+
+不想動 IAM 的話，用附的 `Dockerfile` 在本機建置後推送，完全跳過 Cloud Build：
+
+```bash
+gcloud auth configure-docker asia-east1-docker.pkg.dev
+IMG=asia-east1-docker.pkg.dev/<專案ID>/cloud-run-source-deploy/caipan-moa-proxy:latest
+docker build -t "$IMG" .
+docker push "$IMG"
+gcloud run deploy caipan-moa-proxy --image "$IMG" --region asia-east1
+```
+
+### 對外存取方式
+
+`deploy.sh` 預設部署成**私有服務**（需要 IAM 驗證），驗證階段用你自己的 ID token 呼叫。
+要讓 GitHub Actions 能用，二選一：
+
+**甲、開放未驗證存取，靠共用密鑰保護**（簡單，本專案的預設設計）
+
+```bash
+gcloud run services add-iam-policy-binding caipan-moa-proxy \
+    --region asia-east1 --member=allUsers --role=roles/run.invoker
+```
+
+轉發器只接受 GET、只轉發 `data.moa.gov.tw`，並檢查 `X-Caipan-Token`。
+轉發的本來就是公開的政府開放資料，最壞情況是有人消耗你的免費額度。
+
+**乙、維持私有，用服務帳戶驗證**（較嚴謹，設定較多）
+
+建一個服務帳戶給 GitHub Actions、授予 `roles/run.invoker`，在 workflow 裡用
+`google-github-actions/auth` 取得 ID token，放進 `Authorization: Bearer` 標頭。
+這需要 `fetch_data.py` 支援額外的自訂標頭，目前尚未實作。
+
 ## 接到 GitHub Actions
 
 在 repo 的 **Settings → Secrets and variables → Actions** 設定：
