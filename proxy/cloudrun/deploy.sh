@@ -31,10 +31,10 @@ if [ -n "${BUILD_SA:-}" ]; then
 fi
 
 # 密鑰：沿用既有的，沒有就隨機產生一組
-token="$(gcloud run services describe "$SERVICE" --region "$REGION" \
-          --format='value(spec.template.spec.containers[0].env.filter("name","CAIPAN_TOKEN").extract("value"))' \
-          2>/dev/null || true)"
-token="$(printf '%s' "$token" | tr -d '[:space:]')"
+# 注意：不要用 --format='value(...env.filter(...))'，這版 gcloud 的 filter 轉換器會 crash
+token="$(gcloud run services describe "$SERVICE" --region "$REGION" --format=json 2>/dev/null \
+  | python -c "import json,sys;d=json.load(sys.stdin);e=d['spec']['template']['spec']['containers'][0].get('env',[]);print(next((x.get('value','') for x in e if x.get('name')=='CAIPAN_TOKEN'),''))" 2>/dev/null || true)"
+token="$(printf %s "$token" | tr -d "[:space:]")"
 if [ -z "$token" ]; then
   token="$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 32)"
   echo "產生新的 CAIPAN_TOKEN（稍後要填進 GitHub Secrets）"
@@ -59,10 +59,11 @@ encoded="$(python -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[
 
 # 私有服務：用目前登入身分的 ID token 呼叫
 idtoken="$(gcloud auth print-identity-token)"
-code="$(curl -sS -m 90 -o /tmp/caipan_probe.json -w '%{http_code}' \
+code="$(curl -sS -m 90 -o ./caipan_probe.json -w '%{http_code}' \
         -H "Authorization: Bearer $idtoken" \
         -H "X-Caipan-Token: $token" "${url}/?url=${encoded}" || echo 000)"
-count="$(python -c 'import json;d=json.load(open("/tmp/caipan_probe.json",encoding="utf-8"));print(len(d) if isinstance(d,list) else -1)' 2>/dev/null || echo -1)"
+count="$(python -c 'import json;d=json.load(open("./caipan_probe.json",encoding="utf-8"));print(len(d) if isinstance(d,list) else -1)' 2>/dev/null || echo -1)"
+trap "rm -f ./caipan_probe.json" EXIT
 
 echo
 if [ "$code" = "200" ] && [ "$count" -gt 0 ]; then
@@ -78,6 +79,6 @@ else
   echo "若 HTTP 是 502，代表 Cloud Run 的位址同樣被來源擋掉，"
   echo "表示來源是用 ISP 位址段白名單而非 IP 地理位置放行，雲端方案走不通，"
   echo "請改用本機排程或自架 runner。"
-  head -c 300 /tmp/caipan_probe.json 2>/dev/null || true
+  head -c 300 ./caipan_probe.json 2>/dev/null || true
   exit 1
 fi
