@@ -107,10 +107,10 @@ gcloud run deploy caipan-moa-proxy --image "$IMG" --region asia-east1
 
 ### 對外存取方式
 
-`deploy.sh` 預設部署成**私有服務**（需要 IAM 驗證），驗證階段用你自己的 ID token 呼叫。
-要讓 GitHub Actions 能用，二選一：
+`deploy.sh` 預設部署成**私有服務**（需要 IAM 驗證），部署後的驗證階段用你自己的 ID token 呼叫。
+要讓 GitHub Actions 能用，得再決定對外存取方式。本專案採**甲案**，已於 2026-10-28 套用：
 
-**甲、開放未驗證存取，靠共用密鑰保護**（簡單，本專案的預設設計）
+**甲、開放未驗證存取，靠共用密鑰保護**（本專案採用）
 
 ```bash
 gcloud run services add-iam-policy-binding caipan-moa-proxy \
@@ -118,13 +118,34 @@ gcloud run services add-iam-policy-binding caipan-moa-proxy \
 ```
 
 轉發器只接受 GET、只轉發 `data.moa.gov.tw`，並檢查 `X-Caipan-Token`。
-轉發的本來就是公開的政府開放資料，最壞情況是有人消耗你的免費額度。
+轉發的本來就是公開的政府開放資料，最壞情況是密鑰外洩後有人消耗免費額度。
 
-**乙、維持私有，用服務帳戶驗證**（較嚴謹，設定較多）
+這個 IAM 綁定掛在**服務**上而不是 revision 上，所以之後重跑 `deploy.sh` 不會把它改回私有，
+不需要每次部署後重設。
+
+**乙、維持私有，用服務帳戶驗證**（較嚴謹，設定較多，本專案未採用）
 
 建一個服務帳戶給 GitHub Actions、授予 `roles/run.invoker`，在 workflow 裡用
 `google-github-actions/auth` 取得 ID token，放進 `Authorization: Bearer` 標頭。
 這需要 `fetch_data.py` 支援額外的自訂標頭，目前尚未實作。
+若還要避免在 GitHub Secrets 存長期金鑰，得再設 Workload Identity Federation。
+
+### 健康檢查端點不能叫 /healthz
+
+Google Front End 會攔截**完全等於** `/healthz` 的請求並直接回 404，根本到不了容器。
+實測同一個服務：
+
+| 路徑 | 結果 |
+|---|---|
+| `/healthz` | Google 的 404 HTML 錯誤頁（容器沒收到） |
+| `/healthz/` | 容器回應（403 Token 不符） |
+| `/HEALTHZ`、`/foo`、`/` | 容器回應 |
+
+所以健康檢查改用 `/ping`：
+
+```bash
+curl https://<你的轉發網址>/ping     # 預期 ok
+```
 
 ## 接到 GitHub Actions
 
@@ -133,7 +154,15 @@ gcloud run services add-iam-policy-binding caipan-moa-proxy \
 | 類型 | 名稱 | 值 |
 |---|---|---|
 | Variables | `MOA_PROXY_BASE` | `https://<你的轉發網址>/?url={url}` |
-| Secrets | `MOA_PROXY_TOKEN` | 上面設的 `CAIPAN_TOKEN`（沒設就留空） |
+| Secrets | `MOA_PROXY_TOKEN` | 服務上的 `CAIPAN_TOKEN`（沒設就留空） |
+
+密鑰不必自己複製貼上，直接從 Cloud Run 導進 GitHub，過程中不會顯示在畫面上：
+
+```bash
+gcloud run services describe caipan-moa-proxy --region asia-east1 --format=json \
+  | python -c "import json,sys;e=json.load(sys.stdin)['spec']['template']['spec']['containers'][0].get('env',[]);sys.stdout.write(next((x.get('value','') for x in e if x.get('name')=='CAIPAN_TOKEN'),'').strip())" \
+  | gh secret set MOA_PROXY_TOKEN --repo <你的帳號>/caipan
+```
 
 `{url}` 會被替換成 URL-encode 後的目標網址。多個轉發點用逗號分隔，會依序嘗試：
 

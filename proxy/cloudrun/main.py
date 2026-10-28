@@ -5,10 +5,13 @@ data.moa.gov.tw 的防火牆只放行台灣 IP。部署在 asia-east1 的 Cloud 
 出口固定在台灣，可代 GitHub Actions 取得資料。相較 Cloudflare Workers 的
 Smart Placement（盡力而為），這個方式的落地位置是確定的。
 
-部署：
-    cd proxy/cloudrun
-    gcloud run deploy caipan-moa-proxy --source . --region asia-east1 \
-        --allow-unauthenticated --set-env-vars CAIPAN_TOKEN=<自訂字串>
+部署（deploy.sh 會處理密鑰沿用與部署後驗證）：
+    cd proxy/cloudrun && bash deploy.sh
+
+服務預設是私有的。要讓 GitHub Actions 能呼叫，再開放未驗證存取；
+實際的擋門是下面的 X-Caipan-Token 檢查：
+    gcloud run services add-iam-policy-binding caipan-moa-proxy \
+        --region asia-east1 --member=allUsers --role=roles/run.invoker
 
 只用標準函式庫，不需要 requirements.txt。
 """
@@ -35,7 +38,9 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
-        if parsed.path == "/healthz":
+        # 健康檢查不要用 /healthz：Google Front End 會攔下這個路徑直接回 404，
+        # 請求根本進不到容器（實測 /healthz 回 Google 的 404 頁，/healthz/ 才進得來）。
+        if parsed.path == "/ping":
             return self.reply(200, b"ok")
 
         # 共用密鑰放在標頭而非網址，避免跟著 URL 進到日誌

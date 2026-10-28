@@ -161,4 +161,6 @@ caipan/
 - 從 12 個國外節點（美國 ×2、德國 ×2、荷蘭 ×2、巴西、瑞典、新加坡、土耳其、伊朗、越南）對 `data.moa.gov.tw:443` 建立 TCP 連線，**全部逾時**；同一時間台灣本機 `200 OK`、1.09 MB、2.8 秒。這補上了先前缺的證據：封鎖在來源端，依 IP 地域放行，與執行器作業系統無關。
 - 公用代理（allorigins、codetabs）主機同樣在境外，實測一併連不到，不能當解法。
 - 解法是讓請求從台灣出去。`scripts/fetch_data.py` 新增代理路由支援，設定 `MOA_PROXY_BASE` 即可；未設定時行為與原本相同（直連），本機在台灣照跑。
+- 轉發器已部署在 Cloud Run `asia-east1`（台灣彰化），實測透過它取回 2423 筆行情。採開放未驗證存取、由 `X-Caipan-Token` 共用密鑰把關；轉發器只接受 GET、只轉 `data.moa.gov.tw`。
+- GitHub 端設定：`MOA_PROXY_BASE`（Variables）、`MOA_PROXY_TOKEN`（Secrets）。
 - 轉發器程式碼與部署步驟見 [`proxy/README.md`](proxy/README.md)。

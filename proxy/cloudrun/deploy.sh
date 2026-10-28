@@ -57,23 +57,34 @@ echo "== 驗證：從 Cloud Run（台灣）抓 $TEST_DATE 的行情 =="
 target="https://data.moa.gov.tw/Service/OpenData/FromM/FarmTransData.aspx?StartDate=${TEST_DATE}&EndDate=${TEST_DATE}"
 encoded="$(python -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1],safe=""))' "$target")"
 
-# 私有服務：用目前登入身分的 ID token 呼叫
+trap 'rm -f ./caipan_probe.json' EXIT
+
+# 帶 ID token 呼叫，私有或已開放都能驗；服務已開放時這個標頭會被忽略
 idtoken="$(gcloud auth print-identity-token)"
 code="$(curl -sS -m 90 -o ./caipan_probe.json -w '%{http_code}' \
         -H "Authorization: Bearer $idtoken" \
         -H "X-Caipan-Token: $token" "${url}/?url=${encoded}" || echo 000)"
 count="$(python -c 'import json;d=json.load(open("./caipan_probe.json",encoding="utf-8"));print(len(d) if isinstance(d,list) else -1)' 2>/dev/null || echo -1)"
-trap "rm -f ./caipan_probe.json" EXIT
 
 echo
 if [ "$code" = "200" ] && [ "$count" -gt 0 ]; then
   echo "成功：取回 $count 筆。Cloud Run 的台灣出口 IP 沒有被來源擋。"
   echo
   echo "服務網址： ${url}"
-  echo "共用密鑰： ${token}"
+  echo "健康檢查： ${url}/ping"
+  echo "共用密鑰： 已設定（不輸出到畫面，避免留在終端機捲動紀錄裡）"
   echo
-  echo "服務目前是私有的（需要 IAM 驗證）。要讓 GitHub Actions 能呼叫，"
-  echo "請先決定對外存取方式，見 proxy/README.md。"
+  # IAM 綁定在服務層級，重新部署不會動到它，所以這裡照實查一次目前狀態
+  if gcloud run services get-iam-policy "$SERVICE" --region "$REGION" \
+       --format='value(bindings.members)' 2>/dev/null | grep -q 'allUsers'; then
+    echo "對外存取：已開放未驗證存取，由 X-Caipan-Token 把關。"
+    echo "要把密鑰設進 GitHub Secrets，見 proxy/README.md 的「接到 GitHub Actions」。"
+  else
+    echo "對外存取：目前是私有服務（需要 IAM 驗證），GitHub Actions 還無法呼叫。"
+    echo "要開放請執行（見 proxy/README.md 的「對外存取方式」）："
+    echo "  gcloud run services add-iam-policy-binding $SERVICE \\"
+    echo "      --region $REGION --member=allUsers --role=roles/run.invoker"
+  fi
 else
   echo "失敗：HTTP=$code，解析到 $count 筆。"
   echo "若 HTTP 是 502，代表 Cloud Run 的位址同樣被來源擋掉，"
