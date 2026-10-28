@@ -88,24 +88,80 @@ def from_roc_date(roc_str: str) -> datetime:
     day = int(parts[2])
     return datetime(year, month, day)
 
+# 來源站台只開放台灣 IP，GitHub Actions 的 runner 在境外會被防火牆直接丟包。
+# MOA_PROXY_BASE 可填一個或多個（逗號分隔）落地台灣的轉發網址，依序嘗試；
+# 範本中的 {url} 會替換成 URL-encode 後的目標網址，沒寫就直接接在結尾。
+#   例：https://caipan-moa-proxy.xxx.workers.dev/?url={url}
+# 未設定時只走直連，本機在台灣執行即可。
+SOURCE_URL = "https://data.moa.gov.tw/Service/OpenData/FromM/FarmTransData.aspx?StartDate={roc}&EndDate={roc}"
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Caipan/1.0"
+
+_preferred_route = None     # 已確認可用的路由，後續日期優先重用
+_all_routes_failed = False  # 第一個日期就全軍覆沒，後面不再浪費逾時時間
+
+def reset_route_cache():
+    """清掉路由記憶，供測試與重跑使用"""
+    global _preferred_route, _all_routes_failed
+    _preferred_route = None
+    _all_routes_failed = False
+
+def build_routes(roc_date: str):
+    """組出這個日期要嘗試的連線路由，代理優先、直連墊底"""
+    target = SOURCE_URL.format(roc=roc_date)
+    quoted = urllib.parse.quote(target, safe="")
+    routes = []
+    for raw in os.environ.get("MOA_PROXY_BASE", "").split(","):
+        template = raw.strip()
+        if not template:
+            continue
+        if "{url}" in template:
+            routes.append(("代理", template.replace("{url}", quoted)))
+        else:
+            routes.append(("代理", template.rstrip("/") + "/" + quoted))
+    # 沒設代理就只能直連；有設代理時仍保留直連當最後手段（可用 MOA_ALLOW_DIRECT=0 關掉）
+    if not routes or os.environ.get("MOA_ALLOW_DIRECT", "1") != "0":
+        routes.append(("直連", target))
+    if _preferred_route:
+        routes.sort(key=lambda route: route[0] != _preferred_route)
+    return routes
+
+def request_market_json(url: str):
+    """送出單次請求並驗證回傳格式"""
+    headers = {"User-Agent": USER_AGENT}
+    token = os.environ.get("MOA_PROXY_TOKEN", "").strip()
+    if token:
+        headers["X-Caipan-Token"] = token
+    req = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(req, context=SSL_CTX, timeout=float(os.environ.get("MOA_TIMEOUT", "45"))) as resp:
+        content = resp.read().decode("utf-8")
+    items = json.loads(content)
+    if not isinstance(items, list) or not all(isinstance(item, dict) for item in items):
+        raise ValueError("API 回傳格式不正確")
+    return items
+
 def fetch_moa_date(roc_date: str, retries: int = 3):
-    """抓取農業部單一日期所有交易行情"""
-    url = f"https://data.moa.gov.tw/Service/OpenData/FromM/FarmTransData.aspx?StartDate={roc_date}&EndDate={roc_date}"
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Caipan/1.0"})
-    for attempt in range(retries):
-        try:
-            with urllib.request.urlopen(req, context=SSL_CTX, timeout=45) as resp:
-                content = resp.read().decode("utf-8")
-                items = json.loads(content)
-                if not isinstance(items, list) or not all(isinstance(item, dict) for item in items):
-                    raise ValueError("API 回傳格式不正確")
+    """抓取農業部單一日期所有交易行情，某條路由不通就換下一條"""
+    global _preferred_route, _all_routes_failed
+    attempts = 1 if _all_routes_failed else retries
+    last_error = None
+    for label, url in build_routes(roc_date):
+        for attempt in range(attempts):
+            try:
+                items = request_market_json(url)
+                if _preferred_route != label:
+                    print(f"[{roc_date}] 改用{label}路由取得資料")
+                _preferred_route = label
+                _all_routes_failed = False
                 return items
-        except Exception as e:
-            if attempt == retries - 1:
-                print(f"[{roc_date}] 抓取失敗: {e}")
-                return None
-            print(f"[{roc_date}] 第 {attempt + 1} 次失敗，稍後重試: {e}")
-            time.sleep(min(2 ** (attempt + 1), 8))
+            except Exception as e:
+                last_error = e
+                if attempt < attempts - 1:
+                    print(f"[{roc_date}] {label}第 {attempt + 1} 次失敗，稍後重試: {e}")
+                    time.sleep(min(2 ** (attempt + 1), 8))
+        print(f"[{roc_date}] {label}路由不通: {last_error}")
+    if _preferred_route is None:
+        _all_routes_failed = True
+    print(f"[{roc_date}] 抓取失敗: {last_error}")
     return None
 
 def find_matched_crop(raw_crop_code: str, raw_crop_name: str):
@@ -236,7 +292,7 @@ def update_history_data(days_back: int = 40):
     
     save_history(history)
     print(f"歷史資料更新完成，共保留 {len(history['dates'])} 個有效交易日！")
-    return {"failed_dates": failed_dates, "successful_dates": successful_dates}
+    return {"failed_dates": failed_dates, "successful_dates": successful_dates, "route": _preferred_route}
 
 def rsi(series_c, n=14):
     """計算 RSI(14)"""
