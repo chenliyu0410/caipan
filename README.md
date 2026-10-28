@@ -123,6 +123,10 @@ caipan/
 ├── scripts/
 │   ├── fetch_data.py           # 農業部行情爬蟲與指標計算引擎
 │   └── generate_icons.py       # PWA 圖示生成腳本
+├── proxy/                      # 落地台灣的來源轉發器（讓境外 CI 也抓得到行情）
+│   ├── README.md               # 封鎖成因實測與部署步驟
+│   ├── cloudflare/             # Cloudflare Workers 版（免費、落點盡力而為）
+│   └── cloudrun/               # GCP Cloud Run asia-east1 版（落點確定在台灣）
 └── .github/
     └── workflows/
         └── daily_update.yml    # GitHub Actions 免費每日定時更新工作流
@@ -151,3 +155,12 @@ caipan/
 - 已由本機執行 `python scripts/fetch_data.py`，補回 10 月 23 至 27 日行情，行情日期為 `115.10.27`，六個查詢日期皆成功；9 月 27 日無目標交易資料。
 - 暫時更新方式：在可連上來源的電腦，先以最新 `main` 建立乾淨 checkout，再執行既有抓取程式，僅提交 `data/history.json` 與 `data/latest.json` 並推送。請避免把其他網頁編輯一起提交。
 - GitHub 排程仍保留真實失敗狀態。換 API 路徑、增加等待時間或更換已測試的雲端作業系統，都沒有證據能解決此連線問題。長期替代方案是使用可連線的本機排程或自架執行器；本機方案需要電腦開機、登入與連網。
+
+### 2026-10-28 確認為來源端地域封鎖，改走台灣轉發
+
+- 從 12 個國外節點（美國 ×2、德國 ×2、荷蘭 ×2、巴西、瑞典、新加坡、土耳其、伊朗、越南）對 `data.moa.gov.tw:443` 建立 TCP 連線，**全部逾時**；同一時間台灣本機 `200 OK`、1.09 MB、2.8 秒。這補上了先前缺的證據：封鎖在來源端，依 IP 地域放行，與執行器作業系統無關。
+- 公用代理（allorigins、codetabs）主機同樣在境外，實測一併連不到，不能當解法。
+- 解法是讓請求從台灣出去。`scripts/fetch_data.py` 新增代理路由支援，設定 `MOA_PROXY_BASE` 即可；未設定時行為與原本相同（直連），本機在台灣照跑。
+- 轉發器已部署在 Cloud Run `asia-east1`（台灣彰化），實測透過它取回 2423 筆行情。採開放未驗證存取、由 `X-Caipan-Token` 共用密鑰把關；轉發器只接受 GET、只轉 `data.moa.gov.tw`。
+- GitHub 端設定：`MOA_PROXY_BASE`（Variables）、`MOA_PROXY_TOKEN`（Secrets）。
+- 轉發器程式碼與部署步驟見 [`proxy/README.md`](proxy/README.md)。

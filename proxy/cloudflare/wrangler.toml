@@ -1,0 +1,8 @@
+name = "caipan-moa-proxy"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+
+# 把執行點搬到靠近來源（台灣）的節點，出去的 IP 才有機會被來源接受。
+# 沒有這段的話 Worker 會在離呼叫端最近的節點執行，從美國出去一樣被擋。
+[placement]
+mode = "smart"
