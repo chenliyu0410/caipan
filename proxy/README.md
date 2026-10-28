@@ -37,11 +37,21 @@ GitHub Actions 的 runner 在境外，所以每日更新會卡在逾時。解法
 
 `asia-east1` 的實體機房在台灣，出口 IP 固定。免費額度遠超過每天 8 次請求。
 
+先完成登入（會開瀏覽器，必須你本人操作）：
+
+```bash
+gcloud auth login
+gcloud config set project <你的專案ID>
+```
+
+然後跑部署腳本，它會部署完直接驗證，並印出要填進 GitHub 的兩個值：
+
 ```bash
 cd proxy/cloudrun
-gcloud run deploy caipan-moa-proxy --source . --region asia-east1 \
-    --allow-unauthenticated --set-env-vars CAIPAN_TOKEN=<自訂字串>
+bash deploy.sh
 ```
+
+腳本會沿用既有的 `CAIPAN_TOKEN`，第一次執行則自動產生一組。
 
 > 仍需實測確認：來源若是以「台灣 ISP 位址段白名單」而非「IP 地理位置」放行，
 > 雲端機房的位址也可能被擋。部署後跑一次下方的驗證指令就知道。
