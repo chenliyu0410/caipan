@@ -19,6 +19,20 @@ GitHub Actions 的 runner 在境外，所以每日更新會卡在逾時。解法
 
 > 注意：一般的公用代理（allorigins、codetabs 等）主機也在境外，實測同樣連不到，不能用。
 
+### 已排除的替代作法（2026-10-28 實測）
+
+在做轉發器之前，先確認過有沒有「不用代理」的走法，結論是沒有：
+
+| 作法 | 結果 |
+|---|---|
+| 改用 `data.gov.tw` 的同一個資料集（dataset/8066） | 目錄頁國外連得通（6/6），但頁面上的「資料資源下載網址」仍指回 `data.moa.gov.tw`，等於沒繞過 |
+| 改用 `amis.afa.gov.tw`／`data.afa.gov.tw`／`apis.afa.gov.tw` | 國外 0/6，同樣被擋 |
+| 公用代理（allorigins、codetabs） | 主機在境外，一併連不到 |
+| Cloudflare Workers + Smart Placement | 流量型態不符合，搬不到台灣，詳見下方方案二 |
+
+要注意封鎖是**針對特定主機**，不是整個 `.gov.tw`：同一批節點測 `www.moa.gov.tw` 與 `data.gov.tw` 都是 6/6 連通。
+所以「台灣政府網站一律鎖境外」的說法是錯的，被鎖的是供應實際資料的那幾台。
+
 ## 方案一：Google Cloud Run（建議，落點確定在台灣彰化）
 
 `asia-east1` 的實體機房在台灣，出口 IP 固定。免費額度遠超過每天 8 次請求。
